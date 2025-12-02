@@ -13,6 +13,7 @@ import FieldFormModal from './components/FieldFormModal';
 import FieldDetailsModal from './components/FieldDetailsModal';
 import DeleteConfirmationModal from './components/DeleteConfirmationModal';
 import FieldAnalytics from './components/FieldAnalytics';
+import { createScheduleSlot, listenSchedules } from '../../services/scheduleService';
 
 const AdminFieldManagement = () => {
   const [fields, setFields] = useState([]);
@@ -25,6 +26,8 @@ const AdminFieldManagement = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedField, setSelectedField] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({ fieldName:'', date:'', startTime:'', endTime:'' });
+  const [schedules, setSchedules] = useState([]);
 
   const mockFields = [
   {
@@ -128,6 +131,8 @@ const AdminFieldManagement = () => {
   useEffect(() => {
     setFields(mockFields);
     setFilteredFields(mockFields);
+    const unsub = listenSchedules((items)=> setSchedules(items || []));
+    return () => { if (unsub) unsub(); };
   }, []);
 
   useEffect(() => {
@@ -353,6 +358,52 @@ const AdminFieldManagement = () => {
               )}
               </div>
             }
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Icon name="Calendar" size={20} color="var(--color-primary)" />
+                </div>
+                <h2 className="text-lg font-semibold text-foreground">Buat Jadwal Lapangan</h2>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <Input label="Nama Lapangan" value={scheduleForm?.fieldName} onChange={(e)=>setScheduleForm({...scheduleForm, fieldName:e?.target?.value})} />
+              <Input label="Tanggal" type="date" value={scheduleForm?.date} onChange={(e)=>setScheduleForm({...scheduleForm, date:e?.target?.value})} />
+              <Input label="Waktu Mulai" type="time" value={scheduleForm?.startTime} onChange={(e)=>setScheduleForm({...scheduleForm, startTime:e?.target?.value})} />
+              <Input label="Waktu Selesai" type="time" value={scheduleForm?.endTime} onChange={(e)=>setScheduleForm({...scheduleForm, endTime:e?.target?.value})} />
+            </div>
+            <div className="flex items-center justify-end mt-4">
+              <Button
+                variant="success"
+                iconName="Save"
+                iconPosition="left"
+                onClick={async ()=>{
+                  const res = await createScheduleSlot({ ...scheduleForm, status:'available' });
+                  if (res?.success) {
+                    window.showNotification && window.showNotification({ type:'success', message:'Jadwal berhasil dibuat' });
+                    setScheduleForm({ fieldName:'', date:'', startTime:'', endTime:'' });
+                  } else {
+                    window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat jadwal' });
+                  }
+                }}
+              >
+                Simpan Jadwal
+              </Button>
+            </div>
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-2">Jadwal Terbaru</h3>
+              <div className="grid md:grid-cols-2 gap-2">
+                {schedules?.slice(0,6)?.map((sc)=>(
+                  <div key={sc?.id} className="p-3 border border-border rounded">
+                    <div className="text-sm font-medium text-foreground">{sc?.fieldName}</div>
+                    <div className="text-xs text-muted-foreground">{sc?.date} • {sc?.startTime} - {sc?.endTime}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </main>
 

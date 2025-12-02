@@ -10,6 +10,8 @@ import BookingDetailsForm from './components/BookingDetailsForm';
 import BookingSummaryPanel from './components/BookingSummaryPanel';
 import BookingPolicySection from './components/BookingPolicySection';
 import BookingActions from './components/BookingActions';
+import { createBooking } from '../../services/bookingService';
+import { auth } from '../../config/firebase';
 
 const BookingForm = () => {
   const navigate = useNavigate();
@@ -116,46 +118,52 @@ const BookingForm = () => {
       });
       return;
     }
-
     setIsSubmitting(true);
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const bookingReference = `BK${Date.now()?.toString()?.slice(-8)}`;
-
-      const bookingData = {
-        bookingReference,
+      const bookingPayload = {
+        userId: auth?.currentUser?.uid || localStorage.getItem('userId') || `guest-${Date.now()}`,
+        userName: localStorage.getItem('userName') || 'Pengguna',
         fieldId: fieldData?.id,
         fieldName: fieldData?.name,
-        ...formData,
-        status: 'pending',
-        totalPrice: fieldData?.pricePerHour * parseInt(formData?.duration) + 5000,
-        createdAt: new Date()?.toISOString(),
-        userId: localStorage.getItem('userId') || 'user-001'
+        date: formData?.bookingDate,
+        startTime: formData?.startTime,
+        duration: parseInt(formData?.duration),
+        purpose: formData?.purpose,
+        phoneNumber: formData?.phoneNumber,
+        specialRequests: formData?.specialRequirements,
+        totalPrice: fieldData?.pricePerHour * parseInt(formData?.duration || 0) + 5000,
+        status: 'pending'
       };
-
-      localStorage.setItem(`booking_${bookingReference}`, JSON.stringify(bookingData));
-
-      window.showNotification({
-        type: 'success',
-        message: `Booking berhasil! Referensi: ${bookingReference}`
-      });
-
-      setTimeout(() => {
-        navigate('/field-schedule', {
+      const result = await createBooking(bookingPayload);
+      if (result?.success) {
+        const bookingId = result?.bookingId;
+        window.showNotification({
+          type: 'success',
+          message: 'Booking berhasil dibuat'
+        });
+        navigate('/payment-management', {
           state: {
-            bookingSuccess: true,
-            bookingReference
+            bookingData: {
+              bookingId,
+              fieldName: bookingPayload?.fieldName,
+              date: bookingPayload?.date,
+              time: `${bookingPayload?.startTime}`,
+              duration: bookingPayload?.duration,
+              totalAmount: bookingPayload?.totalPrice
+            }
           }
         });
-      }, 1500);
-
+      } else {
+        window.showNotification({
+          type: 'error',
+          message: result?.error || 'Gagal membuat booking'
+        });
+        setIsSubmitting(false);
+      }
     } catch (error) {
-      console.error('Booking submission error:', error);
       window.showNotification({
         type: 'error',
-        message: 'Terjadi kesalahan saat memproses booking. Silakan coba lagi.'
+        message: error?.message || 'Terjadi kesalahan saat memproses booking'
       });
       setIsSubmitting(false);
     }

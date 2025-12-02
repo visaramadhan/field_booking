@@ -4,6 +4,7 @@ import { Camera, Upload, CreditCard, Building2, Check, AlertCircle, Loader2, Fil
 import Button from 'components/ui/Button';
 
 import { createPayment, uploadPaymentProof } from 'services/paymentService';
+import { getBankDetails } from 'services/settingsService';
 import { auth } from 'config/firebase';
 
 const PaymentManagement = () => {
@@ -20,12 +21,7 @@ const PaymentManagement = () => {
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [error, setError] = useState('');
   
-  const bankDetails = {
-    bankName: 'Bank Mandiri',
-    accountNumber: '1234567890',
-    accountName: 'Field Booking System',
-    branch: 'Jakarta Pusat'
-  };
+  const [bankDetails, setBankDetails] = useState(null);
   
   const facilityAddress = 'Jl. Olahraga No. 123, Jakarta Selatan 12345';
   const operatingHours = 'Senin - Jumat: 08:00 - 22:00, Sabtu - Minggu: 06:00 - 24:00';
@@ -35,6 +31,20 @@ const PaymentManagement = () => {
       navigate('/field-schedule');
     }
   }, [bookingData, navigate]);
+
+  useEffect(() => {
+    (async () => {
+      const res = await getBankDetails();
+      if (res?.success) {
+        setBankDetails(res?.data || {
+          bankName: 'Bank Mandiri',
+          accountNumber: '1234567890',
+          accountName: 'Field Booking System',
+          branch: 'Jakarta Pusat'
+        });
+      }
+    })();
+  }, []);
   
   const handleFileSelect = (e) => {
     const file = e?.target?.files?.[0];

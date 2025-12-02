@@ -5,6 +5,7 @@ import AuthTabs from './components/AuthTabs';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import NotificationSystem from '../../components/navigation/NotificationSystem';
+import { loginUser, registerUser } from '../../services/authService';
 
 const Authentication = () => {
   const [activeTab, setActiveTab] = useState('login');
@@ -22,102 +23,89 @@ const Authentication = () => {
     }
   }, [navigate]);
 
-  const mockUsers = [
-    {
-      email: 'visaramadhan28@gmail.com',
-      password: 'password',
-      name: 'Visa Ramadhan',
-      role: 'admin'
-    },
-    {
-      email: 'user@example.com',
-      password: 'password123',
-      name: 'John Doe',
-      role: 'customer'
-    }
-  ];
+  
 
   const handleLogin = async (formData) => {
     setIsLoading(true);
-
-    setTimeout(() => {
-      const user = mockUsers?.find(
-        u => u?.email === formData?.email && u?.password === formData?.password
-      );
-
-      if (user) {
-        localStorage.setItem('authToken', `mock-token-${Date.now()}`);
-        localStorage.setItem('userRole', user?.role);
-        localStorage.setItem('userName', user?.name);
-        localStorage.setItem('userEmail', user?.email);
-
+    try {
+      const result = await loginUser(formData?.email, formData?.password);
+      if (result?.success) {
+        const user = result?.user;
+        const role = user?.userData?.accountType || 'customer';
+        const displayName = user?.userData?.fullName || user?.displayName || 'Pengguna';
+        localStorage.setItem('authToken', user?.uid || `token-${Date.now()}`);
+        localStorage.setItem('userRole', role);
+        localStorage.setItem('userName', displayName);
+        localStorage.setItem('userEmail', user?.email || '');
         if (window.showNotification) {
           window.showNotification({
             type: 'success',
-            message: `Selamat datang, ${user?.name}!`
+            message: `Selamat datang, ${displayName}!`
           });
         }
-
         const from = location?.state?.from?.pathname;
-        const redirectPath = user?.role === 'admin' ?'/admin-booking-management' : (from ||'/field-schedule');
-
-        setTimeout(() => {
-          navigate(redirectPath, { replace: true });
-        }, 500);
+        const redirectPath = role === 'admin' ? '/admin-booking-management' : (from || '/field-schedule');
+        navigate(redirectPath, { replace: true });
       } else {
         if (window.showNotification) {
           window.showNotification({
             type: 'error',
-            message: 'Email atau password salah. Silakan coba lagi.'
+            message: result?.error || 'Login gagal'
           });
         }
         setIsLoading(false);
       }
-    }, 1500);
+    } catch (e) {
+      if (window.showNotification) {
+        window.showNotification({
+          type: 'error',
+          message: e?.message || 'Terjadi kesalahan saat login'
+        });
+      }
+      setIsLoading(false);
+    }
   };
 
   const handleRegister = async (formData) => {
     setIsLoading(true);
-
-    setTimeout(() => {
-      const existingUser = mockUsers?.find(u => u?.email === formData?.email);
-
-      if (existingUser) {
+    try {
+      const result = await registerUser({
+        email: formData?.email,
+        password: formData?.password,
+        fullName: formData?.name,
+        accountType: 'customer'
+      });
+      if (result?.success) {
+        const user = result?.user;
+        localStorage.setItem('authToken', user?.uid || `token-${Date.now()}`);
+        localStorage.setItem('userRole', 'customer');
+        localStorage.setItem('userName', user?.displayName || formData?.name || 'Pengguna');
+        localStorage.setItem('userEmail', user?.email || formData?.email || '');
+        if (window.showNotification) {
+          window.showNotification({
+            type: 'success',
+            message: 'Pendaftaran berhasil! Selamat datang.'
+          });
+        }
+        navigate('/field-schedule', { replace: true });
+      } else {
         if (window.showNotification) {
           window.showNotification({
             type: 'error',
-            message: 'Email sudah terdaftar. Silakan gunakan email lain.'
+            message: result?.error || 'Pendaftaran gagal'
           });
         }
         setIsLoading(false);
-        return;
       }
-
-      const newUser = {
-        email: formData?.email,
-        password: formData?.password,
-        name: formData?.name,
-        role: 'customer'
-      };
-
-      mockUsers?.push(newUser);
-
-      localStorage.setItem('authToken', `mock-token-${Date.now()}`);
-      localStorage.setItem('userRole', newUser?.role);
-      localStorage.setItem('userName', newUser?.name);
-      localStorage.setItem('userEmail', newUser?.email);
-
+    } catch (e) {
       if (window.showNotification) {
         window.showNotification({
-          type: 'success',
-          message: 'Pendaftaran berhasil! Selamat datang.'
+          type: 'error',
+          message: e?.message || 'Terjadi kesalahan saat pendaftaran'
         });
       }
-
-      setTimeout(() => {
-        navigate('/field-schedule', { replace: true });
-      }, 500);
-    }, 1500);
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -12,6 +12,12 @@ import MobileBookingCard from './components/MobileBookingCard';
 import BulkActionsBar from './components/BulkActionsBar';
 import RevenueTracker from './components/RevenueTracker';
 import ConfirmationDialog from './components/ConfirmationDialog';
+import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
+import { listenBookings, updateBookingStatus, removeBooking, createBooking } from '../../services/bookingService';
+import { getBankDetails, saveBankDetails } from '../../services/settingsService';
+import { createPayment, uploadPaymentProof, updatePaymentStatus } from '../../services/paymentService';
+import { auth } from '../../config/firebase';
 
 const AdminBookingManagement = () => {
   const navigate = useNavigate();
@@ -36,144 +42,18 @@ const AdminBookingManagement = () => {
     sort: 'date-desc'
   });
 
-  const [bookings, setBookings] = useState([
-    {
-      id: 'BK-2025-001',
-      userName: 'Ahmad Rizki',
-      userEmail: 'ahmad.rizki@email.com',
-      userPhone: '+62 812-3456-7890',
-      fieldName: 'Lapangan Futsal A',
-      date: '2025-11-25',
-      startTime: '14:00',
-      endTime: '16:00',
-      duration: 2,
-      totalPrice: 300000,
-      status: 'pending',
-      paymentStatus: 'unpaid',
-      submittedAt: '21/11/2025 10:30',
-      specialRequests: 'Mohon sediakan bola futsal dan rompi latihan untuk 10 orang',
-      adminNotes: ''
-    },
-    {
-      id: 'BK-2025-002',
-      userName: 'Siti Nurhaliza',
-      userEmail: 'siti.nurhaliza@email.com',
-      userPhone: '+62 813-4567-8901',
-      fieldName: 'Lapangan Basket Indoor',
-      date: '2025-11-24',
-      startTime: '16:00',
-      endTime: '18:00',
-      duration: 2,
-      totalPrice: 400000,
-      status: 'confirmed',
-      paymentStatus: 'paid',
-      submittedAt: '20/11/2025 14:20',
-      specialRequests: 'Perlu pencahayaan ekstra untuk sesi latihan malam',
-      adminNotes: 'Pembayaran sudah dikonfirmasi via transfer bank'
-    },
-    {
-      id: 'BK-2025-003',
-      userName: 'Budi Santoso',
-      userEmail: 'budi.santoso@email.com',
-      userPhone: '+62 814-5678-9012',
-      fieldName: 'Lapangan Futsal B',
-      date: '2025-11-26',
-      startTime: '08:00',
-      endTime: '10:00',
-      duration: 2,
-      totalPrice: 250000,
-      status: 'pending',
-      paymentStatus: 'unpaid',
-      submittedAt: '21/11/2025 08:15',
-      specialRequests: '',
-      adminNotes: ''
-    },
-    {
-      id: 'BK-2025-004',
-      userName: 'Dewi Lestari',
-      userEmail: 'dewi.lestari@email.com',
-      userPhone: '+62 815-6789-0123',
-      fieldName: 'Lapangan Voli Outdoor',
-      date: '2025-11-23',
-      startTime: '10:00',
-      endTime: '12:00',
-      duration: 2,
-      totalPrice: 200000,
-      status: 'completed',
-      paymentStatus: 'paid',
-      submittedAt: '18/11/2025 16:45',
-      specialRequests: 'Mohon persiapkan net voli yang bagus',
-      adminNotes: 'Booking selesai dengan baik, customer puas'
-    },
-    {
-      id: 'BK-2025-005',
-      userName: 'Eko Prasetyo',
-      userEmail: 'eko.prasetyo@email.com',
-      userPhone: '+62 816-7890-1234',
-      fieldName: 'Lapangan Futsal A',
-      date: '2025-11-27',
-      startTime: '18:00',
-      endTime: '20:00',
-      duration: 2,
-      totalPrice: 350000,
-      status: 'rejected',
-      paymentStatus: 'unpaid',
-      submittedAt: '21/11/2025 12:00',
-      specialRequests: 'Booking untuk turnamen internal perusahaan',
-      adminNotes: 'Ditolak karena jadwal sudah penuh'
-    },
-    {
-      id: 'BK-2025-006',
-      userName: 'Fitri Handayani',
-      userEmail: 'fitri.handayani@email.com',
-      userPhone: '+62 817-8901-2345',
-      fieldName: 'Lapangan Basket Indoor',
-      date: '2025-11-28',
-      startTime: '14:00',
-      endTime: '17:00',
-      duration: 3,
-      totalPrice: 600000,
-      status: 'confirmed',
-      paymentStatus: 'paid',
-      submittedAt: '19/11/2025 09:30',
-      specialRequests: 'Perlu sound system untuk acara mini tournament',
-      adminNotes: 'Sound system sudah diatur'
-    },
-    {
-      id: 'BK-2025-007',
-      userName: 'Gunawan Wijaya',
-      userEmail: 'gunawan.wijaya@email.com',
-      userPhone: '+62 818-9012-3456',
-      fieldName: 'Lapangan Futsal B',
-      date: '2025-11-29',
-      startTime: '06:00',
-      endTime: '08:00',
-      duration: 2,
-      totalPrice: 200000,
-      status: 'pending',
-      paymentStatus: 'unpaid',
-      submittedAt: '21/11/2025 15:20',
-      specialRequests: 'Booking pagi untuk latihan rutin tim',
-      adminNotes: ''
-    },
-    {
-      id: 'BK-2025-008',
-      userName: 'Hendra Kusuma',
-      userEmail: 'hendra.kusuma@email.com',
-      userPhone: '+62 819-0123-4567',
-      fieldName: 'Lapangan Voli Outdoor',
-      date: '2025-11-30',
-      startTime: '16:00',
-      endTime: '18:00',
-      duration: 2,
-      totalPrice: 200000,
-      status: 'cancelled',
-      paymentStatus: 'unpaid',
-      submittedAt: '20/11/2025 11:00',
-      specialRequests: '',
-      adminNotes: 'Dibatalkan oleh customer karena perubahan jadwal'
-    }
-  ]);
+  const [bookings, setBookings] = useState([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    userName: '',
+    userPhone: '',
+    userEmail: '',
+    fieldName: '',
+    date: '',
+    startTime: '',
+    duration: '1',
+    totalPrice: ''
+  });
 
   const revenueData = {
     total: 2500000,
@@ -182,6 +62,10 @@ const AdminBookingManagement = () => {
     thisMonth: 2500000,
     lastMonth: 2100000
   };
+
+  const [bankDetails, setBankDetails] = useState({ bankName:'', accountNumber:'', accountName:'', branch:'' });
+  const [paymentForm, setPaymentForm] = useState({ bookingId:'', amount:'', file:null, paymentId:null, status:'' });
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
 
   const bookingCounts = {
     total: bookings?.length,
@@ -195,6 +79,18 @@ const AdminBookingManagement = () => {
     if (storedUserName) {
       setUserName(storedUserName);
     }
+    const unsub = listenBookings((items) => {
+      setBookings(items || []);
+    });
+    (async () => {
+      const res = await getBankDetails();
+      if (res?.success && res?.data) {
+        setBankDetails(res?.data);
+      }
+    })();
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
   const handleLogout = () => {
@@ -258,9 +154,7 @@ const AdminBookingManagement = () => {
       'Setujui Booking',
       'Apakah Anda yakin ingin menyetujui booking ini? Pengguna akan menerima notifikasi konfirmasi.',
       async () => {
-        setBookings(prev => prev?.map(b => 
-          b?.id === bookingId ? { ...b, status: 'confirmed' } : b
-        ));
+        await updateBookingStatus(bookingId, 'confirmed');
         if (window.showNotification) {
           window.showNotification({
             type: 'success',
@@ -277,9 +171,7 @@ const AdminBookingManagement = () => {
       'Tolak Booking',
       'Apakah Anda yakin ingin menolak booking ini? Pengguna akan menerima notifikasi penolakan.',
       async () => {
-        setBookings(prev => prev?.map(b => 
-          b?.id === bookingId ? { ...b, status: 'rejected' } : b
-        ));
+        await updateBookingStatus(bookingId, 'rejected');
         if (window.showNotification) {
           window.showNotification({
             type: 'error',
@@ -296,7 +188,7 @@ const AdminBookingManagement = () => {
       'Hapus Booking',
       'Apakah Anda yakin ingin menghapus booking ini? Tindakan ini tidak dapat dibatalkan.',
       async () => {
-        setBookings(prev => prev?.filter(b => b?.id !== bookingId));
+        await removeBooking(bookingId);
         if (window.showNotification) {
           window.showNotification({
             type: 'success',
@@ -421,14 +313,23 @@ const AdminBookingManagement = () => {
                 </div>
                 <span>Kelola Booking</span>
               </h1>
-              <Button
-                variant="outline"
-                iconName="Download"
-                iconPosition="left"
-                className="hidden md:flex"
-              >
-                Ekspor Data
-              </Button>
+              <div className="hidden md:flex items-center space-x-2">
+                <Button
+                  variant="default"
+                  iconName="Plus"
+                  iconPosition="left"
+                  onClick={() => setIsCreateModalOpen(true)}
+                >
+                  Buat Booking Langsung
+                </Button>
+                <Button
+                  variant="outline"
+                  iconName="Download"
+                  iconPosition="left"
+                >
+                  Ekspor Data
+                </Button>
+              </div>
             </div>
             <p className="text-muted-foreground">
               Kelola semua reservasi lapangan dan persetujuan booking
@@ -436,6 +337,155 @@ const AdminBookingManagement = () => {
           </div>
 
           <RevenueTracker revenueData={revenueData} />
+
+          <div className="mt-6 bg-card rounded-lg border border-border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Icon name="Building" size={20} color="var(--color-primary)" />
+                </div>
+                <h2 className="text-lg font-semibold text-foreground">Pengaturan Rekening untuk Transfer</h2>
+              </div>
+              <Button
+                variant="success"
+                iconName="Save"
+                iconPosition="left"
+                onClick={async ()=>{
+                  const res = await saveBankDetails(bankDetails);
+                  if (res?.success) {
+                    window.showNotification && window.showNotification({ type:'success', message:'Informasi rekening tersimpan' });
+                  } else {
+                    window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal menyimpan' });
+                  }
+                }}
+              >
+                Simpan
+              </Button>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <Input label="Bank" value={bankDetails?.bankName} onChange={(e)=>setBankDetails({...bankDetails, bankName:e?.target?.value})} />
+              <Input label="Nomor Rekening" value={bankDetails?.accountNumber} onChange={(e)=>setBankDetails({...bankDetails, accountNumber:e?.target?.value})} />
+              <Input label="Atas Nama" value={bankDetails?.accountName} onChange={(e)=>setBankDetails({...bankDetails, accountName:e?.target?.value})} />
+              <Input label="Cabang" value={bankDetails?.branch} onChange={(e)=>setBankDetails({...bankDetails, branch:e?.target?.value})} />
+            </div>
+          </div>
+
+          <div className="mt-6 bg-card rounded-lg border border-border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Icon name="CreditCard" size={20} color="var(--color-primary)" />
+                </div>
+                <h2 className="text-lg font-semibold text-foreground">Kelola Pembayaran Manual</h2>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Pilih Booking</label>
+                <select
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                  value={paymentForm?.bookingId}
+                  onChange={(e)=>{
+                    const id = e?.target?.value;
+                    const bk = bookings?.find(b=> (b?.bookingId || b?.id) === id);
+                    setPaymentForm(prev=>({
+                      ...prev,
+                      bookingId:id,
+                      amount: bk?.totalPrice || prev?.amount || ''
+                    }));
+                  }}
+                >
+                  <option value="">-- pilih booking --</option>
+                  {bookings?.map((b)=>{
+                    const id = b?.bookingId || b?.id;
+                    return (
+                      <option key={id} value={id}>{id} - {b?.userName} - {b?.fieldName}</option>
+                    );
+                  })}
+                </select>
+              </div>
+              <Input label="Jumlah (Rp)" type="number" value={paymentForm?.amount} onChange={(e)=>setPaymentForm(prev=>({...prev, amount:e?.target?.value}))} />
+            </div>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-foreground mb-2">Upload Bukti (opsional)</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e)=>setPaymentForm(prev=>({...prev, file: e?.target?.files?.[0] || null}))}
+                className="w-full"
+              />
+            </div>
+            <div className="flex items-center justify-end space-x-2 mt-4">
+              <Button
+                variant="default"
+                iconName="Receipt"
+                iconPosition="left"
+                onClick={async ()=>{
+                  if (!paymentForm?.bookingId) {
+                    window.showNotification && window.showNotification({ type:'error', message:'Pilih booking terlebih dahulu' });
+                    return;
+                  }
+                  const res = await createPayment({
+                    bookingId: paymentForm?.bookingId,
+                    userId: 'admin-action',
+                    totalAmount: parseInt(paymentForm?.amount || '0'),
+                    paymentMethod: 'transfer',
+                    currency: 'IDR',
+                    source: 'admin_manual'
+                  });
+                  if (res?.success) {
+                    setPaymentForm(prev=>({...prev, paymentId: res?.paymentId }));
+                    window.showNotification && window.showNotification({ type:'success', message:`Pembayaran dibuat: ${res?.paymentId}` });
+                  } else {
+                    window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat pembayaran' });
+                  }
+                }}
+              >
+                Buat Pembayaran
+              </Button>
+              <Button
+                variant="warning"
+                iconName="Upload"
+                iconPosition="left"
+                loading={isUploadingProof}
+                onClick={async ()=>{
+                  if (!paymentForm?.paymentId || !paymentForm?.file) {
+                    window.showNotification && window.showNotification({ type:'error', message:'Buat pembayaran dan pilih bukti dulu' });
+                    return;
+                  }
+                  setIsUploadingProof(true);
+                  const r = await uploadPaymentProof(paymentForm?.paymentId, paymentForm?.file);
+                  setIsUploadingProof(false);
+                  if (r?.success) {
+                    window.showNotification && window.showNotification({ type:'success', message:'Bukti terupload' });
+                  } else {
+                    window.showNotification && window.showNotification({ type:'error', message: r?.error || 'Gagal upload bukti' });
+                  }
+                }}
+              >
+                Upload Bukti
+              </Button>
+              <Button
+                variant="success"
+                iconName="CheckCircle"
+                iconPosition="left"
+                onClick={async ()=>{
+                  if (!paymentForm?.paymentId) {
+                    window.showNotification && window.showNotification({ type:'error', message:'Tidak ada paymentId' });
+                    return;
+                  }
+                  const r = await updatePaymentStatus(paymentForm?.paymentId, 'approved');
+                  if (r?.success) {
+                    window.showNotification && window.showNotification({ type:'success', message:'Pembayaran disetujui' });
+                  } else {
+                    window.showNotification && window.showNotification({ type:'error', message: r?.error || 'Gagal menyetujui pembayaran' });
+                  }
+                }}
+              >
+                Setujui Pembayaran
+              </Button>
+            </div>
+          </div>
 
           <BookingFilters
             filters={filters}
@@ -552,6 +602,64 @@ const AdminBookingManagement = () => {
         />
 
         <BottomNavigation userRole="admin" />
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-card rounded-xl border border-border w-full max-w-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Buat Booking Langsung</h3>
+                <Button variant="ghost" iconName="X" onClick={() => setIsCreateModalOpen(false)} />
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <Input label="Nama Customer" name="userName" value={createForm?.userName} onChange={(e)=>setCreateForm({...createForm, userName:e?.target?.value})} />
+                <Input label="No. Telepon" name="userPhone" value={createForm?.userPhone} onChange={(e)=>setCreateForm({...createForm, userPhone:e?.target?.value})} />
+                <Input label="Email" name="userEmail" value={createForm?.userEmail} onChange={(e)=>setCreateForm({...createForm, userEmail:e?.target?.value})} />
+                <Input label="Nama Lapangan" name="fieldName" value={createForm?.fieldName} onChange={(e)=>setCreateForm({...createForm, fieldName:e?.target?.value})} />
+                <Input label="Tanggal" type="date" name="date" value={createForm?.date} onChange={(e)=>setCreateForm({...createForm, date:e?.target?.value})} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="Waktu Mulai" type="time" name="startTime" value={createForm?.startTime} onChange={(e)=>setCreateForm({...createForm, startTime:e?.target?.value})} />
+                  <Select label="Durasi" value={createForm?.duration} onChange={(v)=>setCreateForm({...createForm, duration:v})} options={[
+                    { value: '1', label: '1 jam' },
+                    { value: '2', label: '2 jam' },
+                    { value: '3', label: '3 jam' }
+                  ]} />
+                </div>
+                <Input label="Total Harga" type="number" name="totalPrice" value={createForm?.totalPrice} onChange={(e)=>setCreateForm({...createForm, totalPrice:e?.target?.value})} />
+              </div>
+              <div className="flex items-center justify-end space-x-2 mt-4">
+                <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>Batal</Button>
+                <Button
+                  variant="success"
+                  iconName="Check"
+                  onClick={async ()=>{
+                    const payload = {
+                      userId: auth?.currentUser?.uid || 'admin',
+                      userName: createForm?.userName,
+                      userPhone: createForm?.userPhone,
+                      userEmail: createForm?.userEmail,
+                      fieldName: createForm?.fieldName,
+                      date: createForm?.date,
+                      startTime: createForm?.startTime,
+                      duration: parseInt(createForm?.duration || '1'),
+                      totalPrice: parseInt(createForm?.totalPrice || '0'),
+                      status: 'confirmed',
+                      source: 'admin_direct'
+                    };
+                    const res = await createBooking(payload);
+                    if (res?.success) {
+                      window.showNotification && window.showNotification({ type:'success', message:'Booking langsung berhasil dibuat' });
+                      setIsCreateModalOpen(false);
+                      setCreateForm({ userName:'', userPhone:'', userEmail:'', fieldName:'', date:'', startTime:'', duration:'1', totalPrice:'' });
+                    } else {
+                      window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat booking' });
+                    }
+                  }}
+                >
+                  Simpan
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AuthenticationGuard>
   );
