@@ -9,7 +9,7 @@ import Button from '../../components/ui/Button';
 import BookingFilters from './components/BookingFilters';
 import BookingTableRow from './components/BookingTableRow';
 import MobileBookingCard from './components/MobileBookingCard';
-import BulkActionsBar from './components/BulkActionsBar';
+import BulkActionsBar from './components/BulkActionBar';
 import RevenueTracker from './components/RevenueTracker';
 import ConfirmationDialog from './components/ConfirmationDialog';
 import Input from '../../components/ui/Input';

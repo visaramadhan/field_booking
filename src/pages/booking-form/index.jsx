@@ -4,12 +4,10 @@ import NavigationHeader from '../../components/navigation/NavigationHeader';
 import AuthenticationGuard from '../../components/navigation/AuthenticationGuard';
 import NotificationSystem from '../../components/navigation/NotificationSystem';
 import BottomNavigation from '../../components/navigation/BottomNavigation';
-import BookingFormHeader from './components/BookingFormHeader';
-import FieldInfoCard from './components/FieldInfoCard';
-import BookingDetailsForm from './components/BookingDetailsForm';
-import BookingSummaryPanel from './components/BookingSummaryPanel';
-import BookingPolicySection from './components/BookingPolicySection';
-import BookingActions from './components/BookingActions';
+import BookingFormHeader from './component/BookingFormHeader';
+import BookingDetailsForm from './component/BookingDetailsForm';
+import BookingPolicySection from './component/BookingPolicySection';
+import BookingActions from './component/BookingActions';
 import { createBooking } from '../../services/bookingService';
 import { auth } from '../../config/firebase';
 
@@ -203,7 +201,16 @@ const BookingForm = () => {
           <div className="container mx-auto px-4 py-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <FieldInfoCard fieldData={fieldData} />
+                <div className="bg-card rounded-lg border border-border p-4">
+                  <div className="flex items-center space-x-4">
+                    <img src={fieldData?.image} alt={fieldData?.imageAlt} className="w-20 h-20 rounded-lg object-cover" onError={(e)=>{e.target.src='/assets/images/no_image.png'}} />
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-foreground">{fieldData?.name}</div>
+                      <div className="text-sm text-muted-foreground">Harga per jam: Rp {fieldData?.pricePerHour?.toLocaleString('id-ID')}</div>
+                      <div className="text-xs text-muted-foreground">Lokasi: {fieldData?.location}</div>
+                    </div>
+                  </div>
+                </div>
                 <BookingDetailsForm
                   formData={formData}
                   errors={errors}
@@ -213,10 +220,32 @@ const BookingForm = () => {
               </div>
 
               <div className="lg:col-span-1">
-                <BookingSummaryPanel
-                  fieldData={fieldData}
-                  formData={formData}
-                  totalPrice={fieldData?.pricePerHour * parseInt(formData?.duration || 0) + 5000} />
+                <div className="bg-card rounded-lg border border-border p-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Lapangan</span>
+                      <span className="text-sm font-medium text-foreground">{fieldData?.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Tanggal</span>
+                      <span className="text-sm font-medium text-foreground">{formData?.bookingDate || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Waktu</span>
+                      <span className="text-sm font-medium text-foreground">{formData?.startTime || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Durasi</span>
+                      <span className="text-sm font-medium text-foreground">{formData?.duration || 0} jam</span>
+                    </div>
+                    <div className="border-t border-border pt-3 mt-3">
+                      <div className="flex justify-between">
+                        <span className="text-base font-semibold text-foreground">Total</span>
+                        <span className="text-base font-bold text-primary">Rp {(fieldData?.pricePerHour * parseInt(formData?.duration || 0) + 5000)?.toLocaleString('id-ID')}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
               </div>
             </div>

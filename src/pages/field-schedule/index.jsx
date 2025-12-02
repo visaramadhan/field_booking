@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import NavigationHeader from '../../components/navigation/NavigationHeader';
 import BottomNavigation from '../../components/navigation/BottomNavigation';
 import NotificationSystem from '../../components/navigation/NotificationSystem';
-import ScheduleCalendar from './components/ScheduleCalendar';
-import FieldFilterPanel from './components/FieldFilterPanel';
-import FieldDetailCard from './components/FieldDetailCard';
-import BookingModal from './components/BookingModal';
-import FieldListView from './components/FieldListView';
+import ScheduleCalendar from './component/ScheduleCalendar';
+import FieldFilterPanel from './component/FieldFilterPanel';
+import FieldDetailCard from './component/FieldDetailCard';
+import BookingModal from './component/BookingModal';
+import FieldListView from './component/FieldListView';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 

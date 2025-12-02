@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NavigationHeader from '../../components/navigation/NavigationHeader';
 import BottomNavigation from '../../components/navigation/BottomNavigation';
-import ProfileHeader from './components/ProfileHeader';
-import ProfileForm from './components/ProfileForm';
-import PasswordChangeForm from './components/PasswordChangeForm';
-import AccountStatistics from './components/AccountStatistics';
-import SecuritySettings from './components/SecuritySettings';
-import PrivacyInformation from './components/PrivacyInformation';
+import ProfileHeader from './component/ProfileHeader';
+import ProfileForm from './component/ProfileForm';
+import PasswordChangeForm from './component/PasswordChangeForm';
+import AccountStatistics from './component/AccountStatistic';
+import SecuritySettings from './component/SecuritySettings';
+import PrivacyInformation from './component/PrivacyInformation';
 
 const UserProfile = () => {
   const navigate = useNavigate();

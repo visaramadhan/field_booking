@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import AuthHeader from './components/AuthHeader';
-import AuthTabs from './components/AuthTabs';
-import LoginForm from './components/LoginForm';
-import RegisterForm from './components/RegisterForm';
+import AuthHeader from './component/AuthHeader';
+import AuthTabs from './component/AuthTabs';
+import LoginForm from './component/LoginForm';
+import RegisterForm from './component/RegisterForm';
 import NotificationSystem from '../../components/navigation/NotificationSystem';
 import { loginUser, registerUser } from '../../services/authService';
 

@@ -7,12 +7,12 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
-import FieldCard from './components/FieldCard';
-import FieldTable from './components/FieldTable';
-import FieldFormModal from './components/FieldFormModal';
-import FieldDetailsModal from './components/FieldDetailsModal';
-import DeleteConfirmationModal from './components/DeleteConfirmationModal';
-import FieldAnalytics from './components/FieldAnalytics';
+import FieldCard from './component/FieldCard';
+import FieldTable from './component/FieldTable';
+import FieldFormModal from './component/FieldFormModal';
+import FieldDetailsModal from './component/FieldDetailsModal';
+import DeleteConfirmationModal from './component/DeleteConfirmationModal';
+import FieldAnalytics from './component/FieldAnalytics';
 import { createScheduleSlot, listenSchedules } from '../../services/scheduleService';
 
 const AdminFieldManagement = () => {
