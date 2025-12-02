@@ -1,0 +1,171 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Primary Colors */
+    --color-primary: #2563EB; /* blue-600 - Trustworthy blue for booking confirmations */
+    --color-primary-foreground: #FFFFFF; /* white - High contrast for accessibility */
+    
+    /* Secondary Colors */
+    --color-secondary: #059669; /* emerald-600 - Success-oriented green for available slots */
+    --color-secondary-foreground: #FFFFFF; /* white - Clear contrast */
+    
+    /* Accent Colors */
+    --color-accent: #DC2626; /* red-600 - Alert red for conflicts and warnings */
+    --color-accent-foreground: #FFFFFF; /* white - Maximum readability */
+    
+    /* Background Colors */
+    --color-background: #F8FAFC; /* slate-50 - Neutral light gray for clean interfaces */
+    --color-foreground: #1F2937; /* gray-800 - Dark charcoal for primary content */
+    
+    /* Surface Colors */
+    --color-card: #FFFFFF; /* white - Pure white for card backgrounds */
+    --color-card-foreground: #1F2937; /* gray-800 - Primary text on cards */
+    --color-popover: #FFFFFF; /* white - Clean popover backgrounds */
+    --color-popover-foreground: #1F2937; /* gray-800 - Readable popover text */
+    
+    /* Muted Colors */
+    --color-muted: #F1F5F9; /* slate-100 - Subtle backgrounds */
+    --color-muted-foreground: #6B7280; /* gray-500 - Secondary information */
+    
+    /* Border Colors */
+    --color-border: #E5E7EB; /* gray-200 - Minimal borders */
+    --color-input: #E5E7EB; /* gray-200 - Form input borders */
+    --color-ring: #2563EB; /* blue-600 - Focus ring color */
+    
+    /* Destructive Colors */
+    --color-destructive: #EF4444; /* red-500 - Error states */
+    --color-destructive-foreground: #FFFFFF; /* white - Clear error text */
+    
+    /* Success Colors */
+    --color-success: #10B981; /* emerald-500 - Confirmed bookings */
+    --color-success-foreground: #FFFFFF; /* white - Success message text */
+    
+    /* Warning Colors */
+    --color-warning: #F59E0B; /* amber-500 - Pending approvals */
+    --color-warning-foreground: #FFFFFF; /* white - Warning text */
+    
+    /* Error Colors */
+    --color-error: #EF4444; /* red-500 - Booking conflicts */
+    --color-error-foreground: #FFFFFF; /* white - Error message text */
+    
+    /* Radius */
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Primary Colors - Dark Mode */
+    --color-primary: #3B82F6; /* blue-500 - Brighter for dark backgrounds */
+    --color-primary-foreground: #FFFFFF; /* white - Maintained contrast */
+    
+    /* Secondary Colors - Dark Mode */
+    --color-secondary: #10B981; /* emerald-500 - Vibrant green for dark mode */
+    --color-secondary-foreground: #FFFFFF; /* white - Clear contrast */
+    
+    /* Accent Colors - Dark Mode */
+    --color-accent: #EF4444; /* red-500 - Visible alerts on dark */
+    --color-accent-foreground: #FFFFFF; /* white - High contrast */
+    
+    /* Background Colors - Dark Mode */
+    --color-background: #0F172A; /* slate-900 - Deep dark background */
+    --color-foreground: #F1F5F9; /* slate-100 - Light text on dark */
+    
+    /* Surface Colors - Dark Mode */
+    --color-card: #1E293B; /* slate-800 - Elevated card surfaces */
+    --color-card-foreground: #F1F5F9; /* slate-100 - Readable card text */
+    --color-popover: #1E293B; /* slate-800 - Popover surfaces */
+    --color-popover-foreground: #F1F5F9; /* slate-100 - Popover text */
+    
+    /* Muted Colors - Dark Mode */
+    --color-muted: #334155; /* slate-700 - Subtle dark backgrounds */
+    --color-muted-foreground: #94A3B8; /* slate-400 - Secondary text */
+    
+    /* Border Colors - Dark Mode */
+    --color-border: #334155; /* slate-700 - Subtle borders */
+    --color-input: #334155; /* slate-700 - Input borders */
+    --color-ring: #3B82F6; /* blue-500 - Focus ring */
+    
+    /* Destructive Colors - Dark Mode */
+    --color-destructive: #EF4444; /* red-500 - Error states */
+    --color-destructive-foreground: #FFFFFF; /* white - Error text */
+    
+    /* Success Colors - Dark Mode */
+    --color-success: #10B981; /* emerald-500 - Success states */
+    --color-success-foreground: #FFFFFF; /* white - Success text */
+    
+    /* Warning Colors - Dark Mode */
+    --color-warning: #F59E0B; /* amber-500 - Warning states */
+    --color-warning-foreground: #FFFFFF; /* white - Warning text */
+    
+    /* Error Colors - Dark Mode */
+    --color-error: #EF4444; /* red-500 - Error states */
+    --color-error-foreground: #FFFFFF; /* white - Error text */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+  }
+  
+  .font-mono {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Custom transition for micro-interactions */
+  .transition-smooth {
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Booking card hover effect */
+  .booking-card-hover {
+    transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+  }
+  
+  .booking-card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Pulse animation for real-time indicators */
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+  
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Touch-optimized tap targets */
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
