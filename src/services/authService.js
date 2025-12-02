@@ -6,7 +6,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '../config/firebase';
+import { auth, db, storage } from '../config/firebase.js';
 
 export const registerUser = async (userData) => {
   try {

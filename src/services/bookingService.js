@@ -2,9 +2,12 @@ import {
   collection,
   doc,
   setDoc,
+  getDocs,
   updateDoc,
   deleteDoc,
   onSnapshot,
+  query,
+  where,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -49,6 +52,17 @@ export const removeBooking = async (bookingId) => {
     const ref = doc(db, 'bookings', bookingId);
     await deleteDoc(ref);
     return { success: true };
+  } catch (e) {
+    return { success: false, error: e?.message };
+  }
+};
+
+export const getUserBookings = async (userId) => {
+  try {
+    const q = query(collection(db, 'bookings'), where('userId', '==', userId));
+    const snap = await getDocs(q);
+    const items = snap?.docs?.map(d=>({ id: d?.id, ...d?.data() }));
+    return { success: true, bookings: items };
   } catch (e) {
     return { success: false, error: e?.message };
   }

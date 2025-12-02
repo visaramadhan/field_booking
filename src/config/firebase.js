@@ -2,7 +2,6 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCgb3vJ4w_rimY3yt5ItJqWvCkfU2r1e98",
@@ -21,6 +20,13 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const analytics = getAnalytics(app);
+export const analytics = (typeof window !== 'undefined') ? (()=>{
+  try {
+    const { getAnalytics } = require('firebase/analytics');
+    return getAnalytics(app);
+  } catch (e) {
+    return null;
+  }
+})() : null;
 
 export default app;

@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NavigationHeader from '../../components/navigation/NavigationHeader';
 import BottomNavigation from '../../components/navigation/BottomNavigation';
+import { auth, db } from '../../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { getUserBookings } from '../../services/bookingService';
 import ProfileHeader from './component/ProfileHeader';
 import ProfileForm from './component/ProfileForm';
 import PasswordChangeForm from './component/PasswordChangeForm';
@@ -15,31 +18,13 @@ const UserProfile = () => {
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
 
-  const [userData, setUserData] = useState({
-    fullName: 'Ahmad Rizki Pratama',
-    email: 'ahmad.rizki@example.com',
-    phoneNumber: '081234567890',
-    address: 'Jl. Merdeka No. 123, Jakarta Pusat',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1b43a9a75-1763293741541.png",
-    profileImageAlt: 'Professional headshot of Indonesian man with short black hair wearing casual blue shirt with warm smile',
-    registrationDate: '15 November 2024'
-  });
+  const [userData, setUserData] = useState(null);
 
-  const [formData, setFormData] = useState({
-    fullName: userData?.fullName,
-    email: userData?.email,
-    phoneNumber: userData?.phoneNumber,
-    address: userData?.address
-  });
+  const [formData, setFormData] = useState({ fullName:'', email:'', phoneNumber:'', address:'' });
 
   const [errors, setErrors] = useState({});
 
-  const [statistics, setStatistics] = useState({
-    totalBookings: 24,
-    activeBookings: 3,
-    completedBookings: 18,
-    cancelledBookings: 3
-  });
+  const [statistics, setStatistics] = useState({ totalBookings: 0, activeBookings: 0, completedBookings: 0, cancelledBookings: 0 });
 
   const [securitySettings, setSecuritySettings] = useState({
     emailNotifications: true,
@@ -49,18 +34,45 @@ const UserProfile = () => {
   });
 
   useEffect(() => {
-    const authToken = localStorage.getItem('authToken');
-    const userRole = localStorage.getItem('userRole');
-
-    if (!authToken) {
-      navigate('/authentication');
-      return;
-    }
-
-    if (userRole === 'admin') {
-      navigate('/admin-booking-management');
-      return;
-    }
+    const load = async () => {
+      const current = auth?.currentUser;
+      if (!current?.uid) {
+        navigate('/authentication');
+        return;
+      }
+      const snap = await getDoc(doc(db, 'users', current.uid));
+      const data = snap?.data() || {};
+      const role = data?.accountType || 'customer';
+      if (role === 'admin') {
+        navigate('/admin-booking-management');
+        return;
+      }
+      setUserData({
+        fullName: data?.fullName || '',
+        email: data?.email || current?.email || '',
+        phoneNumber: data?.phoneNumber || '',
+        address: data?.address || '',
+        profileImage: data?.photoURL || '',
+        profileImageAlt: data?.profileImageAlt || 'User profile image'
+      });
+      setFormData({
+        fullName: data?.fullName || '',
+        email: data?.email || current?.email || '',
+        phoneNumber: data?.phoneNumber || '',
+        address: data?.address || ''
+      });
+      const bookingsRes = await getUserBookings(current.uid);
+      if (bookingsRes?.success) {
+        const bookings = bookingsRes?.bookings || [];
+        setStatistics({
+          totalBookings: bookings?.length,
+          activeBookings: bookings?.filter(b=> b?.status === 'pending' || b?.status === 'confirmed')?.length,
+          completedBookings: bookings?.filter(b=> b?.status === 'completed')?.length,
+          cancelledBookings: bookings?.filter(b=> b?.status === 'cancelled' || b?.status === 'rejected')?.length
+        });
+      }
+    };
+    load();
   }, [navigate]);
 
   const validateEmail = (email) => {
@@ -243,13 +255,15 @@ const UserProfile = () => {
 
       <main className="container mx-auto px-4 pt-24 pb-24 md:pb-8">
         <div className="max-w-4xl mx-auto">
-          <ProfileHeader
-            userName={userData?.fullName}
-            userEmail={userData?.email}
-            profileImage={userData?.profileImage}
-            profileImageAlt={userData?.profileImageAlt}
-            onImageUpload={handleImageUpload}
-            isUploading={isImageUploading} />
+          {userData && (
+            <ProfileHeader
+              userName={userData?.fullName}
+              userEmail={userData?.email}
+              profileImage={userData?.profileImage}
+              profileImageAlt={userData?.profileImageAlt}
+              onImageUpload={handleImageUpload}
+              isUploading={isImageUploading} />
+          )}
 
 
           <AccountStatistics statistics={statistics} />

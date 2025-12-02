@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import Icon from '../AppIcon';
+import { auth, db } from '../../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 const AuthenticationGuard = ({ children, requiredRole = null }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -11,25 +13,35 @@ const AuthenticationGuard = ({ children, requiredRole = null }) => {
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
-        const authToken = localStorage.getItem('authToken');
-        const storedUserRole = localStorage.getItem('userRole');
-
-        if (authToken && storedUserRole) {
+        const current = auth?.currentUser;
+        if (current?.uid) {
+          const snap = await getDoc(doc(db, 'users', current.uid));
+          const data = snap?.data();
+          const role = data?.accountType || localStorage.getItem('userRole') || null;
           setIsAuthenticated(true);
-          setUserRole(storedUserRole);
+          setUserRole(role);
+          localStorage.setItem('authToken', current.uid);
+          if (role) localStorage.setItem('userRole', role);
+          if (data?.fullName) localStorage.setItem('userName', data?.fullName);
+          if (current?.email) localStorage.setItem('userEmail', current?.email);
         } else {
-          setIsAuthenticated(false);
-          setUserRole(null);
+          const authToken = localStorage.getItem('authToken');
+          const storedUserRole = localStorage.getItem('userRole');
+          if (authToken && storedUserRole) {
+            setIsAuthenticated(true);
+            setUserRole(storedUserRole);
+          } else {
+            setIsAuthenticated(false);
+            setUserRole(null);
+          }
         }
       } catch (error) {
-        console.error('Authentication check failed:', error);
         setIsAuthenticated(false);
         setUserRole(null);
       } finally {
         setIsLoading(false);
       }
     };
-
     checkAuthentication();
   }, []);
 
