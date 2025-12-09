@@ -8,7 +8,8 @@ import BookingFormHeader from './component/BookingFormHeader';
 import BookingDetailsForm from './component/BookingDetailsForm';
 import BookingPolicySection from './component/BookingPolicySection';
 import BookingActions from './component/BookingActions';
-import { createBooking } from '../../services/bookingService';
+import { listenBookings, createBooking } from '../../services/bookingService';
+import { listenSchedules } from '../../services/scheduleService';
 import { auth } from '../../config/firebase';
 
 const BookingForm = () => {
@@ -37,6 +38,8 @@ const BookingForm = () => {
     phoneNumber: '',
     specialRequirements: ''
   });
+  const [schedules, setSchedules] = useState([]);
+  const [bookings, setBookings] = useState([]);
 
   const [errors, setErrors] = useState({});
 
@@ -45,6 +48,9 @@ const BookingForm = () => {
     const storedUserRole = localStorage.getItem('userRole') || 'customer';
     setUserName(storedUserName);
     setUserRole(storedUserRole);
+    const unsubSchedules = listenSchedules((items)=> setSchedules(items || []));
+    const unsubBookings = listenBookings((items)=> setBookings(items || []));
+    return ()=> { if (unsubSchedules) unsubSchedules(); if (unsubBookings) unsubBookings(); };
   }, []);
 
   const validateForm = () => {
@@ -107,6 +113,22 @@ const BookingForm = () => {
       }));
     }
   };
+
+  const availableScheduleOptions = (()=>{
+    const fieldId = fieldData?.id?.toString();
+    const todayISO = new Date()?.toISOString()?.split('T')?.[0];
+    const isBooked = (sc)=> bookings?.some(b=> b?.fieldId?.toString() === fieldId && b?.date === sc?.date && b?.startTime === sc?.startTime && (b?.status === 'pending' || b?.status === 'confirmed'));
+    return schedules
+      ?.filter(sc => sc?.fieldId?.toString() === fieldId && sc?.date >= todayISO)
+      ?.filter(sc => !isBooked(sc))
+      ?.sort((a,b)=> (a?.date?.localeCompare(b?.date)) || (a?.startTime?.localeCompare(b?.startTime)))
+      ?.map(sc => ({
+        value: `${sc?.date} ${sc?.startTime}`,
+        label: `${sc?.date} • ${sc?.startTime} - ${sc?.endTime}`,
+        date: sc?.date,
+        startTime: sc?.startTime
+      }));
+  })();
 
   const handleSubmit = async () => {
     if (!validateForm()) {
@@ -201,16 +223,42 @@ const BookingForm = () => {
           <div className="container mx-auto px-4 py-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <div className="bg-card rounded-lg border border-border p-4">
-                  <div className="flex items-center space-x-4">
-                    <img src={fieldData?.image} alt={fieldData?.imageAlt} className="w-20 h-20 rounded-lg object-cover" onError={(e)=>{e.target.src='/assets/images/no_image.png'}} />
-                    <div className="flex-1">
-                      <div className="text-lg font-semibold text-foreground">{fieldData?.name}</div>
-                      <div className="text-sm text-muted-foreground">Harga per jam: Rp {fieldData?.pricePerHour?.toLocaleString('id-ID')}</div>
-                      <div className="text-xs text-muted-foreground">Lokasi: {fieldData?.location}</div>
-                    </div>
+              <div className="bg-card rounded-lg border border-border p-4">
+                <div className="flex items-center space-x-4">
+                  <img src={fieldData?.image} alt={fieldData?.imageAlt} className="w-20 h-20 rounded-lg object-cover" onError={(e)=>{e.target.src='/assets/images/no_image.png'}} />
+                  <div className="flex-1">
+                    <div className="text-lg font-semibold text-foreground">{fieldData?.name}</div>
+                    <div className="text-sm text-muted-foreground">Harga per jam: Rp {fieldData?.pricePerHour?.toLocaleString('id-ID')}</div>
+                    <div className="text-xs text-muted-foreground">Lokasi: {fieldData?.location}</div>
                   </div>
                 </div>
+              </div>
+
+              <div className="bg-card rounded-lg border border-border p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-md font-semibold text-foreground">Pilih dari Jadwal Tersedia</h3>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Jadwal</label>
+                  <select
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                    value={availableScheduleOptions?.find(opt=> opt?.date === formData?.bookingDate && opt?.startTime === formData?.startTime)?.value || ''}
+                    onChange={(e)=>{
+                      const val = e?.target?.value;
+                      const opt = availableScheduleOptions?.find(o=> o?.value === val);
+                      if (opt) {
+                        setFormData(prev=> ({ ...prev, bookingDate: opt?.date, startTime: opt?.startTime, duration: prev?.duration || '1' }));
+                      }
+                    }}
+                  >
+                    <option value="">-- pilih jadwal tersedia --</option>
+                    {availableScheduleOptions?.map((opt, idx)=> (
+                      <option key={idx} value={opt?.value}>{opt?.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-2">Memilih jadwal akan mengisi tanggal dan waktu otomatis.</p>
+                </div>
+              </div>
                 <BookingDetailsForm
                   formData={formData}
                   errors={errors}

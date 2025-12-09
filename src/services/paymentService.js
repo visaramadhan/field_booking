@@ -5,6 +5,7 @@ import {
   getDoc, 
   getDocs,
   updateDoc,
+  onSnapshot,
   query,
   where,
   orderBy,
@@ -26,6 +27,14 @@ export const createPayment = async (paymentData) => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    if (paymentData?.bookingId) {
+      try {
+        await updateDoc(doc(db, 'bookings', paymentData?.bookingId), {
+          paymentStatus: 'pending',
+          updatedAt: serverTimestamp()
+        });
+      } catch (_) {}
+    }
     
     return {
       success: true,
@@ -45,16 +54,28 @@ export const uploadPaymentProof = async (paymentId, proofFile) => {
     const storageRef = ref(storage, `payment-proofs/${paymentId}`);
     const snapshot = await uploadBytes(storageRef, proofFile);
     const proofURL = await getDownloadURL(snapshot?.ref);
-    
-    // Update payment record with proof
+
     const paymentRef = doc(db, 'payments', paymentId);
+    const currentSnap = await getDoc(paymentRef);
+    const current = currentSnap?.data() || {};
+    const nextStatus = current?.status === 'approved' ? 'approved' : 'verification_pending';
+
     await updateDoc(paymentRef, {
       proofURL,
       proofUploadedAt: serverTimestamp(),
-      status: 'verification_pending',
+      status: nextStatus,
       updatedAt: serverTimestamp()
     });
-    
+    try {
+      const bookingId = current?.bookingId;
+      if (bookingId) {
+        await updateDoc(doc(db, 'bookings', bookingId), {
+          paymentStatus: nextStatus === 'approved' ? 'paid' : 'verification_pending',
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (_) {}
+
     return {
       success: true,
       proofURL
@@ -132,6 +153,17 @@ export const updatePaymentStatus = async (paymentId, status, notes = '') => {
       verifiedAt: status === 'approved' ? serverTimestamp() : null,
       updatedAt: serverTimestamp()
     });
+    try {
+      const paySnap = await getDoc(paymentRef);
+      const data = paySnap?.data();
+      const bookingId = data?.bookingId;
+      if (bookingId) {
+        await updateDoc(doc(db, 'bookings', bookingId), {
+          paymentStatus: status === 'approved' ? 'paid' : status,
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (_) {}
     
     return {
       success: true
@@ -142,4 +174,12 @@ export const updatePaymentStatus = async (paymentId, status, notes = '') => {
       error: error?.message
     };
   }
+};
+
+export const listenPayments = (callback) => {
+  const q = query(collection(db, 'payments'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const items = snapshot?.docs?.map((d) => ({ id: d?.id, ...d?.data() }));
+    callback(items);
+  });
 };

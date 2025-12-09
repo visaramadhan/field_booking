@@ -10,6 +10,10 @@ import BookingModal from './component/BookingModal';
 import FieldListView from './component/FieldListView';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
+import { listenFields } from '../../services/fieldService';
+import { listenBookings, createBooking } from '../../services/bookingService';
+import { listenSchedules } from '../../services/scheduleService';
+import { auth } from '../../config/firebase';
 
 const FieldSchedule = () => {
   const navigate = useNavigate();
@@ -29,91 +33,9 @@ const FieldSchedule = () => {
     timeSlot: 'all'
   });
 
-  const mockFields = [
-  {
-    id: 1,
-    name: "Lapangan Futsal A",
-    type: "Lapangan Futsal",
-    description: "Lapangan futsal indoor dengan lantai vinyl berkualitas tinggi, pencahayaan LED terang, dan sistem ventilasi modern. Dilengkapi dengan gawang standar FIFA dan jaring pengaman di sekeliling lapangan.",
-    image: "https://images.unsplash.com/photo-1670435972971-36e0b43fd746",
-    imageAlt: "Modern indoor futsal court with bright LED lighting, green vinyl flooring, white boundary lines, and professional goal posts with safety nets",
-    price: 150000,
-    size: "40m x 20m",
-    capacity: "10-12 pemain",
-    surface: "Vinyl",
-    indoor: true,
-    amenities: ["Parkir", "Toilet", "Kantin", "Ruang Ganti", "Lampu", "AC"]
-  },
-  {
-    id: 2,
-    name: "Lapangan Futsal B",
-    type: "Lapangan Futsal",
-    description: "Lapangan futsal outdoor dengan rumput sintetis premium, drainase sempurna untuk kondisi hujan, dan pencahayaan floodlight untuk bermain malam hari. Area tribun tersedia untuk penonton.",
-    image: "https://images.unsplash.com/photo-1679061399471-664d5e0d4c56",
-    imageAlt: "Outdoor futsal field with premium synthetic grass, white boundary markings, floodlight towers, and spectator seating area under blue sky",
-    price: 120000,
-    size: "40m x 20m",
-    capacity: "10-12 pemain",
-    surface: "Rumput Sintetis",
-    indoor: false,
-    amenities: ["Parkir", "Toilet", "Kantin", "Tribun", "Lampu"]
-  },
-  {
-    id: 3,
-    name: "Lapangan Badminton 1",
-    type: "Lapangan Badminton",
-    description: "Lapangan badminton indoor dengan lantai kayu parket standar internasional, plafon tinggi 9 meter, dan pencahayaan tanpa bayangan. Dilengkapi dengan net berkualitas tinggi dan sistem scoring digital.",
-    image: "https://images.unsplash.com/photo-1670435972971-36e0b43fd746",
-    imageAlt: "Professional indoor badminton court with polished wooden floor, high ceiling, bright shadowless lighting, white boundary lines, and regulation net",
-    price: 80000,
-    size: "13.4m x 6.1m",
-    capacity: "2-4 pemain",
-    surface: "Kayu Parket",
-    indoor: true,
-    amenities: ["Parkir", "Toilet", "Ruang Ganti", "AC", "Lampu"]
-  },
-  {
-    id: 4,
-    name: "Lapangan Basket",
-    type: "Lapangan Basket",
-    description: "Lapangan basket outdoor dengan permukaan akrilik anti-slip, ring basket standar NBA dengan papan fiber glass, dan marking garis yang jelas. Area bermain luas dengan zona aman di sekeliling lapangan.",
-    image: "https://images.unsplash.com/photo-1693944014082-a208271fecc8",
-    imageAlt: "Outdoor basketball court with orange acrylic surface, white boundary lines, professional hoops with transparent backboards, and safety zones",
-    price: 100000,
-    size: "28m x 15m",
-    capacity: "10-12 pemain",
-    surface: "Akrilik",
-    indoor: false,
-    amenities: ["Parkir", "Toilet", "Kantin", "Tribun", "Lampu"]
-  },
-  {
-    id: 5,
-    name: "Lapangan Tenis",
-    type: "Lapangan Tenis",
-    description: "Lapangan tenis hard court dengan permukaan cushioned acrylic untuk kenyamanan bermain, net standar ITF, dan pencahayaan profesional untuk pertandingan malam. Dilengkapi dengan kursi wasit dan area penonton.",
-    image: "https://images.unsplash.com/photo-1582412786662-84de0f923f5f",
-    imageAlt: "Professional tennis hard court with blue cushioned acrylic surface, white boundary lines, regulation net, umpire chair, and spectator seating",
-    price: 120000,
-    size: "23.77m x 10.97m",
-    capacity: "2-4 pemain",
-    surface: "Hard Court",
-    indoor: false,
-    amenities: ["Parkir", "Toilet", "Kantin", "Tribun", "Lampu"]
-  },
-  {
-    id: 6,
-    name: "Lapangan Voli",
-    type: "Lapangan Voli",
-    description: "Lapangan voli indoor dengan lantai vinyl khusus olahraga, net standar FIVB dengan sistem tensioning, dan pencahayaan optimal tanpa silau. Ruang bermain luas dengan zona bebas yang memadai untuk pergerakan pemain.",
-    image: "https://images.unsplash.com/photo-1670435972971-36e0b43fd746",
-    imageAlt: "Indoor volleyball court with specialized sports vinyl flooring, regulation FIVB net, bright overhead lighting, and spacious player movement zones",
-    price: 90000,
-    size: "18m x 9m",
-    capacity: "12-14 pemain",
-    surface: "Vinyl",
-    indoor: true,
-    amenities: ["Parkir", "Toilet", "Ruang Ganti", "Lampu", "AC"]
-  }];
+  const [fields, setFields] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [schedules, setSchedules] = useState([]);
 
 
   const mockBookings = [
@@ -156,6 +78,10 @@ const FieldSchedule = () => {
     const storedUserRole = localStorage.getItem('userRole') || 'customer';
     setUserName(storedUserName);
     setUserRole(storedUserRole);
+    const unsubFields = listenFields((items)=> setFields(items || []));
+    const unsubBookings = listenBookings((items)=> setBookings(items || []));
+    const unsubSchedules = listenSchedules((items)=> setSchedules(items || []));
+    return ()=>{ if (unsubFields) unsubFields(); if (unsubBookings) unsubBookings(); if (unsubSchedules) unsubSchedules(); };
   }, []);
 
   const handleFilterChange = (filterName, value) => {
@@ -175,7 +101,7 @@ const FieldSchedule = () => {
   };
 
   const getFilteredFields = () => {
-    let filtered = [...mockFields];
+    let filtered = [...fields];
 
     if (filters?.searchQuery) {
       filtered = filtered?.filter((field) =>
@@ -244,6 +170,17 @@ const FieldSchedule = () => {
   };
 
   const filteredFields = getFilteredFields();
+  const transformedBookings = bookings?.map(b=>{
+    try {
+      const d = new Date(b?.date);
+      const day = String(d?.getDate())?.padStart(2,'0');
+      const month = String(d?.getMonth()+1)?.padStart(2,'0');
+      const year = d?.getFullYear();
+      return { fieldId: b?.fieldId, date: `${day}/${month}/${year}`, time: b?.startTime, status: b?.status };
+    } catch(_) {
+      return { fieldId: b?.fieldId, date: b?.date, time: b?.startTime, status: b?.status };
+    }
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -320,7 +257,7 @@ const FieldSchedule = () => {
         {/* Results Count */}
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Menampilkan {filteredFields?.length} dari {mockFields?.length} lapangan
+            Menampilkan {filteredFields?.length} dari {fields?.length} lapangan
           </p>
         </div>
 
@@ -330,7 +267,8 @@ const FieldSchedule = () => {
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}
           fields={filteredFields}
-          bookings={mockBookings}
+          bookings={transformedBookings}
+          schedules={schedules}
           onBookSlot={handleBookSlot} /> :
 
 
@@ -388,8 +326,32 @@ const FieldSchedule = () => {
           setSelectedField(null);
           setBookingSlot(null);
         }}
-        onConfirm={handleConfirmBooking} />
-
+        onConfirm={async (data)=>{
+          const userId = auth?.currentUser?.uid || 'anonymous';
+          const payload = {
+            userId,
+            userName,
+            userEmail: auth?.currentUser?.email || '',
+            fieldId: selectedField?.id,
+            fieldName: selectedField?.name,
+            date: data?.date,
+            startTime: data?.startTime || data?.time,
+            duration: data?.duration || 1,
+            totalPrice: data?.total || Number(selectedField?.pricePerHour || selectedField?.price || 0) * Number(data?.duration || 1),
+            status: 'pending',
+            source: 'user_booking'
+          };
+          const res = await createBooking(payload);
+          if (res?.success) {
+            window.showNotification && window.showNotification({ type:'success', message:'Booking berhasil dibuat! Menunggu persetujuan admin.' });
+          } else {
+            window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat booking' });
+          }
+          setShowBookingModal(false);
+          setSelectedField(null);
+          setBookingSlot(null);
+        }} />
+      
       }
       <BottomNavigation userRole={userRole} />
     </div>);

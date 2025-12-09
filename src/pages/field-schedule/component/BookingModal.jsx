@@ -23,7 +23,8 @@ const BookingModal = ({ field, selectedDate, selectedTime, onClose, onConfirm })
   };
 
   const calculateTotal = () => {
-    return field?.price * duration;
+    const price = field?.pricePerHour || field?.price || 0;
+    return price * duration;
   };
 
   const handleConfirm = () => {

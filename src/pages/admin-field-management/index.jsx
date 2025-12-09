@@ -14,6 +14,7 @@ import FieldDetailsModal from './component/FieldDetailsModal';
 import DeleteConfirmationModal from './component/DeleteConfirmationModal';
 import FieldAnalytics from './component/FieldAnalytics';
 import { createScheduleSlot, listenSchedules } from '../../services/scheduleService';
+import { listenFields, createField, updateField, deleteField } from '../../services/fieldService';
 
 const AdminFieldManagement = () => {
   const [fields, setFields] = useState([]);
@@ -29,110 +30,16 @@ const AdminFieldManagement = () => {
   const [scheduleForm, setScheduleForm] = useState({ fieldName:'', date:'', startTime:'', endTime:'' });
   const [schedules, setSchedules] = useState([]);
 
-  const mockFields = [
-  {
-    id: 1,
-    name: "Lapangan Futsal A",
-    description: "Lapangan futsal standar internasional dengan rumput sintetis berkualitas tinggi. Dilengkapi dengan lampu penerangan LED yang terang untuk permainan malam hari. Tersedia ruang ganti yang nyaman dan toilet bersih.",
-    pricePerHour: 150000,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1486808167956-e146059afcf0",
-    imageAlt: "Modern indoor futsal court with bright green synthetic turf and white boundary lines under LED lighting",
-    lastMaintenance: "2025-01-15",
-    amenities: ["Lampu Penerangan", "Ruang Ganti", "Toilet", "Parkir", "Kantin"],
-    bookingStats: {
-      totalBookings: 145,
-      revenue: 21750000,
-      utilizationRate: 78
-    }
-  },
-  {
-    id: 2,
-    name: "Lapangan Futsal B",
-    description: "Lapangan futsal outdoor dengan sistem drainase yang baik. Cocok untuk latihan tim dan pertandingan persahabatan. Memiliki tribun penonton dengan kapasitas 50 orang.",
-    pricePerHour: 120000,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1679061399471-664d5e0d4c56",
-    imageAlt: "Outdoor futsal field with green artificial grass surrounded by protective fencing and spectator stands",
-    lastMaintenance: "2025-01-10",
-    amenities: ["Lampu Penerangan", "Tribun Penonton", "Parkir", "Toilet"],
-    bookingStats: {
-      totalBookings: 98,
-      revenue: 11760000,
-      utilizationRate: 65
-    }
-  },
-  {
-    id: 3,
-    name: "Lapangan Basket Indoor",
-    description: "Lapangan basket indoor dengan lantai parket berkualitas tinggi dan ring standar NBA. Dilengkapi dengan AC dan sound system untuk acara pertandingan. Kapasitas penonton hingga 200 orang.",
-    pricePerHour: 200000,
-    status: "maintenance",
-    image: "https://images.unsplash.com/photo-1592836981753-d2cdbbf1b3ec",
-    imageAlt: "Professional indoor basketball court with polished wooden floor, regulation hoops, and stadium seating",
-    lastMaintenance: "2025-01-18",
-    amenities: ["Lampu Penerangan", "Ruang Ganti", "Toilet", "Parkir", "Tribun Penonton", "Sound System", "Papan Skor"],
-    bookingStats: {
-      totalBookings: 67,
-      revenue: 13400000,
-      utilizationRate: 45
-    }
-  },
-  {
-    id: 4,
-    name: "Lapangan Voli Pantai",
-    description: "Lapangan voli pantai dengan pasir putih berkualitas premium. Lokasi outdoor dengan pemandangan yang indah. Tersedia area duduk untuk penonton dan kantin dengan menu minuman segar.",
-    pricePerHour: 100000,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1598446522563-70a506175b5d",
-    imageAlt: "Beach volleyball court with white sand, regulation net, and palm trees in tropical outdoor setting",
-    lastMaintenance: "2025-01-05",
-    amenities: ["Lampu Penerangan", "Parkir", "Kantin", "Toilet"],
-    bookingStats: {
-      totalBookings: 52,
-      revenue: 5200000,
-      utilizationRate: 35
-    }
-  },
-  {
-    id: 5,
-    name: "Lapangan Badminton Hall",
-    description: "Hall badminton dengan 6 lapangan standar internasional. Lantai karet anti-slip dan pencahayaan optimal untuk permainan profesional. Dilengkapi dengan ruang tunggu ber-AC dan loker penyimpanan.",
-    pricePerHour: 80000,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1670435972971-36e0b43fd746",
-    imageAlt: "Indoor badminton hall with multiple courts featuring blue flooring, white lines, and professional lighting",
-    lastMaintenance: "2025-01-12",
-    amenities: ["Lampu Penerangan", "Ruang Ganti", "Toilet", "Parkir"],
-    bookingStats: {
-      totalBookings: 189,
-      revenue: 15120000,
-      utilizationRate: 82
-    }
-  },
-  {
-    id: 6,
-    name: "Lapangan Tenis Outdoor",
-    description: "Lapangan tenis outdoor dengan permukaan hard court. Tersedia 2 lapangan dengan net standar ITF. Area parkir luas dan fasilitas shower untuk kenyamanan setelah bermain.",
-    pricePerHour: 130000,
-    status: "closed",
-    image: "https://images.unsplash.com/photo-1659427948877-526b77c74732",
-    imageAlt: "Outdoor tennis court with blue hard surface, white boundary lines, and green net under clear sky",
-    lastMaintenance: "2024-12-20",
-    amenities: ["Lampu Penerangan", "Ruang Ganti", "Toilet", "Parkir"],
-    bookingStats: {
-      totalBookings: 34,
-      revenue: 4420000,
-      utilizationRate: 23
-    }
-  }];
+  const mockFields = [];
 
 
   useEffect(() => {
-    setFields(mockFields);
-    setFilteredFields(mockFields);
-    const unsub = listenSchedules((items)=> setSchedules(items || []));
-    return () => { if (unsub) unsub(); };
+    const unsubFields = listenFields((items)=>{
+      setFields(items || []);
+      setFilteredFields(items || []);
+    });
+    const unsubSchedules = listenSchedules((items)=> setSchedules(items || []));
+    return () => { if (unsubFields) unsubFields(); if (unsubSchedules) unsubSchedules(); };
   }, []);
 
   useEffect(() => {
@@ -201,39 +108,30 @@ const AdminFieldManagement = () => {
 
   const handleSaveField = async (fieldData) => {
     if (fieldData?.id) {
-      setFields((prev) => prev?.map((f) => f?.id === fieldData?.id ? { ...f, ...fieldData } : f));
+      const res = await updateField(fieldData?.id?.toString(), fieldData);
+      return res;
     } else {
-      const newField = {
+      const res = await createField({
         ...fieldData,
-        id: Date.now(),
         imageAlt: `Professional sports field facility for ${fieldData?.name} with modern amenities and equipment`,
-        bookingStats: {
-          totalBookings: 0,
-          revenue: 0,
-          utilizationRate: 0
-        }
-      };
-      setFields((prev) => [...prev, newField]);
+        bookingStats: { totalBookings: 0, revenue: 0, utilizationRate: 0 }
+      });
+      return res;
     }
   };
 
   const confirmDelete = async () => {
     setIsDeleting(true);
-
-    setTimeout(() => {
-      setFields((prev) => prev?.filter((f) => f?.id !== selectedField?.id));
-
-      if (window.showNotification) {
-        window.showNotification({
-          type: 'success',
-          message: 'Lapangan berhasil dihapus'
-        });
-      }
-
+    try {
+      await deleteField(selectedField?.id?.toString());
+      window.showNotification && window.showNotification({ type:'success', message:'Lapangan berhasil dihapus' });
+    } catch (e) {
+      window.showNotification && window.showNotification({ type:'error', message:'Gagal menghapus lapangan' });
+    } finally {
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
       setSelectedField(null);
-    }, 1000);
+    }
   };
 
   const handleLogout = () => {
@@ -370,7 +268,23 @@ const AdminFieldManagement = () => {
               </div>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
-              <Input label="Nama Lapangan" value={scheduleForm?.fieldName} onChange={(e)=>setScheduleForm({...scheduleForm, fieldName:e?.target?.value})} />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Pilih Lapangan</label>
+                <select
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                  value={scheduleForm?.fieldId || ''}
+                  onChange={(e)=>{
+                    const id = e?.target?.value;
+                    const f = fields?.find(fl=> fl?.id?.toString() === id);
+                    setScheduleForm(prev=> ({ ...prev, fieldId:id, fieldName: f?.name || '' }));
+                  }}
+                >
+                  <option value="">-- pilih lapangan --</option>
+                  {fields?.map(f=> (
+                    <option key={f?.id} value={f?.id}>{f?.name}</option>
+                  ))}
+                </select>
+              </div>
               <Input label="Tanggal" type="date" value={scheduleForm?.date} onChange={(e)=>setScheduleForm({...scheduleForm, date:e?.target?.value})} />
               <Input label="Waktu Mulai" type="time" value={scheduleForm?.startTime} onChange={(e)=>setScheduleForm({...scheduleForm, startTime:e?.target?.value})} />
               <Input label="Waktu Selesai" type="time" value={scheduleForm?.endTime} onChange={(e)=>setScheduleForm({...scheduleForm, endTime:e?.target?.value})} />
@@ -384,7 +298,7 @@ const AdminFieldManagement = () => {
                   const res = await createScheduleSlot({ ...scheduleForm, status:'available' });
                   if (res?.success) {
                     window.showNotification && window.showNotification({ type:'success', message:'Jadwal berhasil dibuat' });
-                    setScheduleForm({ fieldName:'', date:'', startTime:'', endTime:'' });
+                    setScheduleForm({ fieldId:'', fieldName:'', date:'', startTime:'', endTime:'' });
                   } else {
                     window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat jadwal' });
                   }

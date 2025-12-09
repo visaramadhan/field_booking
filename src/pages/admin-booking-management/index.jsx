@@ -15,8 +15,10 @@ import ConfirmationDialog from './components/ConfirmationDialog';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import { listenBookings, updateBookingStatus, removeBooking, createBooking } from '../../services/bookingService';
+import { listenFields } from '../../services/fieldService';
 import { getBankDetails, saveBankDetails } from '../../services/settingsService';
-import { createPayment, uploadPaymentProof, updatePaymentStatus } from '../../services/paymentService';
+import { createPayment, uploadPaymentProof, updatePaymentStatus, listenPayments } from '../../services/paymentService';
+import { listenSchedules } from '../../services/scheduleService';
 import { auth } from '../../config/firebase';
 
 const AdminBookingManagement = () => {
@@ -43,11 +45,13 @@ const AdminBookingManagement = () => {
   });
 
   const [bookings, setBookings] = useState([]);
+  const [fields, setFields] = useState([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     userName: '',
     userPhone: '',
     userEmail: '',
+    fieldId: '',
     fieldName: '',
     date: '',
     startTime: '',
@@ -55,13 +59,9 @@ const AdminBookingManagement = () => {
     totalPrice: ''
   });
 
-  const revenueData = {
-    total: 2500000,
-    paid: 1800000,
-    pending: 700000,
-    thisMonth: 2500000,
-    lastMonth: 2100000
-  };
+  const [payments, setPayments] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [revenueData, setRevenueData] = useState({ total:0, paid:0, pending:0, thisMonth:0, lastMonth:0 });
 
   const [bankDetails, setBankDetails] = useState({ bankName:'', accountNumber:'', accountName:'', branch:'' });
   const [paymentForm, setPaymentForm] = useState({ bookingId:'', amount:'', file:null, paymentId:null, status:'' });
@@ -82,6 +82,9 @@ const AdminBookingManagement = () => {
     const unsub = listenBookings((items) => {
       setBookings(items || []);
     });
+    const unsubFields = listenFields((items)=> setFields(items || []));
+    const unsubPayments = listenPayments((items)=> setPayments(items || []));
+    const unsubSchedules = listenSchedules((items)=> setSchedules(items || []));
     (async () => {
       const res = await getBankDetails();
       if (res?.success && res?.data) {
@@ -90,8 +93,35 @@ const AdminBookingManagement = () => {
     })();
     return () => {
       if (unsub) unsub();
+      if (unsubFields) unsubFields();
+      if (unsubPayments) unsubPayments();
+      if (unsubSchedules) unsubSchedules();
     };
   }, []);
+
+  useEffect(()=>{
+    // compute revenue from payments
+    const approved = payments?.filter(p=> p?.status === 'approved');
+    const pending = payments?.filter(p=> p?.status === 'pending' || p?.status === 'verification_pending');
+    const sum = (arr)=> arr?.reduce((acc, p)=> acc + Number(p?.totalAmount || 0), 0);
+    const now = new Date();
+    const thisMonthApproved = approved?.filter(p=> {
+      const ts = p?.createdAt?.toDate ? p?.createdAt?.toDate() : (p?.createdAt? new Date(p?.createdAt) : null);
+      return ts && ts.getMonth() === now.getMonth() && ts.getFullYear() === now.getFullYear();
+    });
+    const lastMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const lastMonthApproved = approved?.filter(p=> {
+      const ts = p?.createdAt?.toDate ? p?.createdAt?.toDate() : (p?.createdAt? new Date(p?.createdAt) : null);
+      return ts && ts.getMonth() === lastMonth.getMonth() && ts.getFullYear() === lastMonth.getFullYear();
+    });
+    setRevenueData({
+      total: sum(approved),
+      paid: sum(approved),
+      pending: sum(pending),
+      thisMonth: sum(thisMonthApproved),
+      lastMonth: sum(lastMonthApproved)
+    });
+  }, [payments]);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -405,6 +435,17 @@ const AdminBookingManagement = () => {
                 </select>
               </div>
               <Input label="Jumlah (Rp)" type="number" value={paymentForm?.amount} onChange={(e)=>setPaymentForm(prev=>({...prev, amount:e?.target?.value}))} />
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-foreground mb-2">Metode Pembayaran</label>
+                <select
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                  value={paymentForm?.method || 'cash'}
+                  onChange={(e)=>setPaymentForm(prev=>({...prev, method:e?.target?.value}))}
+                >
+                  <option value="cash">Bayar Tunai (Cash)</option>
+                  <option value="transfer">Transfer Bank</option>
+                </select>
+              </div>
             </div>
             <div className="mt-3">
               <label className="block text-sm font-medium text-foreground mb-2">Upload Bukti (opsional)</label>
@@ -429,7 +470,7 @@ const AdminBookingManagement = () => {
                     bookingId: paymentForm?.bookingId,
                     userId: 'admin-action',
                     totalAmount: parseInt(paymentForm?.amount || '0'),
-                    paymentMethod: 'transfer',
+                    paymentMethod: paymentForm?.method || 'cash',
                     currency: 'IDR',
                     source: 'admin_manual'
                   });
@@ -493,6 +534,41 @@ const AdminBookingManagement = () => {
             onClearFilters={handleClearFilters}
             bookingCounts={bookingCounts}
           />
+
+          <div className="mt-6 bg-card rounded-lg border border-border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Icon name="Image" size={20} color="var(--color-primary)" />
+                </div>
+                <h2 className="text-lg font-semibold text-foreground">Pembayaran Terbaru</h2>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {payments?.slice(0,6)?.map((p)=> (
+                <div key={p?.id} className="border border-border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-semibold text-foreground">{p?.paymentId}</div>
+                    <span className={`text-xs px-2 py-1 rounded ${p?.status === 'approved' ? 'bg-success/10 text-success' : p?.status === 'verification_pending' ? 'bg-warning/10 text-warning' : 'bg-muted/50 text-muted-foreground'}`}>{p?.status}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">Booking: {p?.bookingId || '-'}</div>
+                  <div className="text-xs text-muted-foreground">Metode: {p?.paymentMethod}</div>
+                  <div className="text-xs text-muted-foreground mb-2">Total: Rp {Number(p?.totalAmount || 0)?.toLocaleString('id-ID')}</div>
+                  {p?.proofURL ? (
+                    <div className="space-y-2">
+                      <img src={p?.proofURL} alt="Bukti pembayaran" className="w-full h-32 object-cover rounded" onError={(e)=>{e.target.style.display='none'}} />
+                      <div className="flex items-center justify-between">
+                        <a href={p?.proofURL} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Lihat Bukti</a>
+                        <Button variant="ghost" size="sm" iconName="ExternalLink" onClick={()=> window.open(p?.proofURL, '_blank')}>Buka</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">Belum ada bukti</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="hidden md:block mt-6 bg-card rounded-lg border border-border overflow-hidden">
             <div className="overflow-x-auto">
@@ -613,11 +689,53 @@ const AdminBookingManagement = () => {
                 <Input label="Nama Customer" name="userName" value={createForm?.userName} onChange={(e)=>setCreateForm({...createForm, userName:e?.target?.value})} />
                 <Input label="No. Telepon" name="userPhone" value={createForm?.userPhone} onChange={(e)=>setCreateForm({...createForm, userPhone:e?.target?.value})} />
                 <Input label="Email" name="userEmail" value={createForm?.userEmail} onChange={(e)=>setCreateForm({...createForm, userEmail:e?.target?.value})} />
-                <Input label="Nama Lapangan" name="fieldName" value={createForm?.fieldName} onChange={(e)=>setCreateForm({...createForm, fieldName:e?.target?.value})} />
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Pilih Lapangan</label>
+                  <select
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                    value={createForm?.fieldId}
+                    onChange={(e)=>{
+                      const id = e?.target?.value;
+                      const f = fields?.find(fl=> fl?.id?.toString() === id);
+                      setCreateForm(prev=>({
+                        ...prev,
+                        fieldId: id,
+                        fieldName: f?.name || '',
+                        totalPrice: f ? (Number(f?.pricePerHour) * Number(prev?.duration || '1')) : prev?.totalPrice
+                      }));
+                    }}
+                  >
+                    <option value="">-- pilih lapangan --</option>
+                    {fields?.map(f=> (
+                      <option key={f?.id} value={f?.id}>{f?.name} (Rp {Number(f?.pricePerHour)?.toLocaleString('id-ID')}/jam)</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Pilih Jadwal Tersedia</label>
+                  <select
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                    value={`${createForm?.date} ${createForm?.startTime}`}
+                    onChange={(e)=>{
+                      const val = e?.target?.value;
+                      const [date, startTime] = val?.split(' ');
+                      setCreateForm(prev=> ({ ...prev, date, startTime }));
+                    }}
+                  >
+                    <option value=" ">-- pilih jadwal --</option>
+                    {schedules
+                      ?.filter(sc => sc?.fieldId?.toString() === (createForm?.fieldId || '')?.toString())
+                      ?.filter(sc => !bookings?.some(b=> b?.fieldId?.toString() === sc?.fieldId?.toString() && b?.date === sc?.date && b?.startTime === sc?.startTime && (b?.status === 'pending' || b?.status === 'confirmed')))
+                      ?.sort((a,b)=> (a?.date?.localeCompare(b?.date)) || (a?.startTime?.localeCompare(b?.startTime)))
+                      ?.map((sc)=> (
+                        <option key={sc?.id} value={`${sc?.date} ${sc?.startTime}`}>{sc?.date} • {sc?.startTime} - {sc?.endTime}</option>
+                      ))}
+                  </select>
+                </div>
                 <Input label="Tanggal" type="date" name="date" value={createForm?.date} onChange={(e)=>setCreateForm({...createForm, date:e?.target?.value})} />
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="Waktu Mulai" type="time" name="startTime" value={createForm?.startTime} onChange={(e)=>setCreateForm({...createForm, startTime:e?.target?.value})} />
-                  <Select label="Durasi" value={createForm?.duration} onChange={(v)=>setCreateForm({...createForm, duration:v})} options={[
+                  <Select label="Durasi" value={createForm?.duration} onChange={(v)=>setCreateForm(prev=> ({...prev, duration:v, totalPrice: prev?.fieldId ? (Number(fields?.find(fl=> fl?.id?.toString() === prev?.fieldId)?.pricePerHour) * Number(v)) : prev?.totalPrice }))} options={[
                     { value: '1', label: '1 jam' },
                     { value: '2', label: '2 jam' },
                     { value: '3', label: '3 jam' }
@@ -636,6 +754,7 @@ const AdminBookingManagement = () => {
                       userName: createForm?.userName,
                       userPhone: createForm?.userPhone,
                       userEmail: createForm?.userEmail,
+                      fieldId: createForm?.fieldId,
                       fieldName: createForm?.fieldName,
                       date: createForm?.date,
                       startTime: createForm?.startTime,
@@ -648,7 +767,7 @@ const AdminBookingManagement = () => {
                     if (res?.success) {
                       window.showNotification && window.showNotification({ type:'success', message:'Booking langsung berhasil dibuat' });
                       setIsCreateModalOpen(false);
-                      setCreateForm({ userName:'', userPhone:'', userEmail:'', fieldName:'', date:'', startTime:'', duration:'1', totalPrice:'' });
+                      setCreateForm({ userName:'', userPhone:'', userEmail:'', fieldId:'', fieldName:'', date:'', startTime:'', duration:'1', totalPrice:'' });
                     } else {
                       window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat booking' });
                     }

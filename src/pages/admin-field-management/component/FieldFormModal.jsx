@@ -4,6 +4,8 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import { Checkbox } from '../../../components/ui/Checkbox';
+import { storage } from '../../../config/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
   const [formData, setFormData] = useState({
@@ -18,6 +20,7 @@ const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
 
   const amenitiesOptions = [
     'Lampu Penerangan',
@@ -93,9 +96,7 @@ const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
       newErrors.pricePerHour = 'Tarif harus lebih dari 0';
     }
 
-    if (!formData?.image?.trim()) {
-      newErrors.image = 'URL gambar wajib diisi';
-    }
+    // image optional
 
     setErrors(newErrors);
     return Object.keys(newErrors)?.length === 0;
@@ -121,7 +122,25 @@ const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
         fieldData.id = field?.id;
       }
 
-      await onSave(fieldData);
+      // If image file provided, handle upload
+      if (imageFile) {
+        if (!fieldData?.id) {
+          const res = await onSave(fieldData);
+          const newId = res?.id || res?.fieldId || (typeof res === 'string' ? res : null);
+          if (!newId) throw new Error('Gagal mendapatkan ID lapangan baru');
+          const storageRef = ref(storage, `field-images/${newId}`);
+          const snap = await uploadBytes(storageRef, imageFile);
+          const url = await getDownloadURL(snap?.ref);
+          await onSave({ id: newId, image: url });
+        } else {
+          const storageRef = ref(storage, `field-images/${fieldData?.id}`);
+          const snap = await uploadBytes(storageRef, imageFile);
+          const url = await getDownloadURL(snap?.ref);
+          await onSave({ ...fieldData, image: url });
+        }
+      } else {
+        await onSave(fieldData);
+      }
       
       if (window.showNotification) {
         window.showNotification({
@@ -220,8 +239,13 @@ const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
             onChange={handleChange}
             placeholder="https://example.com/field-image.jpg"
             error={errors?.image}
-            required
           />
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Upload Foto (opsional)</label>
+            <input type="file" accept="image/*" onChange={(e)=> setImageFile(e?.target?.files?.[0] || null)} />
+            <p className="text-xs text-muted-foreground mt-1">Jika diisi, URL akan diganti dengan foto yang diupload.</p>
+          </div>
 
           <Input
             label="Tanggal Maintenance Terakhir"

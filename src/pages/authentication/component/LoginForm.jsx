@@ -117,7 +117,7 @@ const LoginForm = ({ onSubmit, isLoading }) => {
       <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
         <p className="text-sm font-medium text-foreground mb-2">Kredensial Demo:</p>
         <div className="space-y-1 text-xs text-muted-foreground">
-          <p><strong>Admin:</strong> visaramadhan28@gmail.com / password</p>
+          <p><strong>Admin:</strong> ivandaniar677@gmail.com / password</p>
           <p><strong>User:</strong> user@example.com / password123</p>
         </div>
       </div>

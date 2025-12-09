@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
-const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBookSlot }) => {
+const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, schedules, onBookSlot }) => {
   const [viewMode, setViewMode] = useState('week');
   const [currentWeekStart, setCurrentWeekStart] = useState(new Date());
 
@@ -42,6 +42,28 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBook
       booking?.time === time &&
       (booking?.status === 'confirmed' || booking?.status === 'pending')
     );
+  };
+
+  const toISODate = (date) => {
+    const day = String(date?.getDate())?.padStart(2, '0');
+    const month = String(date?.getMonth() + 1)?.padStart(2, '0');
+    const year = date?.getFullYear();
+    return `${year}-${month}-${day}`;
+  };
+
+  const isSlotScheduled = (fieldId, date, time) => {
+    const iso = toISODate(date);
+    const [hh, mm] = time?.split(':')?.map((x)=>parseInt(x));
+    const slotMinutes = hh * 60 + (mm || 0);
+    return schedules?.some(sc => {
+      if (sc?.fieldId?.toString() !== fieldId?.toString()) return false;
+      if ((sc?.date || '') !== iso) return false;
+      const [sh, sm] = (sc?.startTime || '00:00')?.split(':')?.map((x)=>parseInt(x));
+      const [eh, em] = (sc?.endTime || '00:00')?.split(':')?.map((x)=>parseInt(x));
+      const startM = (sh||0)*60 + (sm||0);
+      const endM = (eh||0)*60 + (em||0);
+      return slotMinutes >= startM && slotMinutes < endM;
+    });
   };
 
   const formatDate = (date) => {
@@ -165,6 +187,7 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBook
                     <div className="space-y-1">
                       {fields?.map((field) => {
                         const isBooked = isSlotBooked(field?.id, date, time);
+                        const isScheduled = isSlotScheduled(field?.id, date, time);
                         const isPast = isPastSlot(date, time);
                         
                         return (
@@ -174,10 +197,13 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBook
                               isPast
                                 ? 'bg-muted text-muted-foreground cursor-not-allowed'
                                 : isBooked
-                                ? 'bg-error/10 text-error' :'bg-success/10 text-success cursor-pointer hover:bg-success/20'
+                                ? 'bg-error/10 text-error'
+                                : isScheduled
+                                ? 'bg-success/10 text-success cursor-pointer hover:bg-success/20'
+                                : 'bg-muted text-muted-foreground cursor-not-allowed'
                             }`}
                             onClick={() => {
-                              if (!isBooked && !isPast) {
+                              if (!isBooked && !isPast && isScheduled) {
                                 onBookSlot(field, date, time);
                               }
                             }}
@@ -185,11 +211,11 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBook
                             <div className="font-medium truncate">{field?.name}</div>
                             <div className="flex items-center justify-between mt-1">
                               <span className="text-[10px]">
-                                {isBooked ? 'Terisi' : isPast ? 'Lewat' : 'Tersedia'}
+                                {isBooked ? 'Terisi' : isPast ? 'Lewat' : (isScheduled ? 'Tersedia' : 'Tidak Tersedia')}
                               </span>
                               {!isBooked && !isPast && (
                                 <span className="text-[10px] font-semibold">
-                                  Rp {field?.price?.toLocaleString('id-ID')}
+                                  Rp {(field?.pricePerHour || field?.price)?.toLocaleString('id-ID')}
                                 </span>
                               )}
                             </div>

@@ -16,13 +16,14 @@ export const createBooking = async (bookingData) => {
   try {
     const bookingId = bookingData?.bookingId || `BK-${Date.now()}-${Math.random()?.toString(36)?.substr(2,9)}`;
     const ref = doc(db, 'bookings', bookingId);
-    await setDoc(ref, {
-      ...bookingData,
-      bookingId,
-      status: bookingData?.status || 'pending',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+  await setDoc(ref, {
+    ...bookingData,
+    bookingId,
+    status: bookingData?.status || 'pending',
+    paymentStatus: bookingData?.paymentStatus || 'unpaid',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
     return { success: true, bookingId };
   } catch (e) {
     return { success: false, error: e?.message };

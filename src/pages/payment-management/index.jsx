@@ -321,6 +321,37 @@ const PaymentManagement = () => {
           )}
         </div>
         
+        {/* Referensi dari Admin (opsional) */}
+        {paymentMethod === 'transfer' && !paymentId && (
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Masukkan Nomor Referensi dari Admin</h2>
+            <p className="text-sm text-gray-600 mb-4">Jika admin sudah membuat pembayaran manual, Anda bisa memasukkan nomor referensi untuk upload bukti.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Referensi (paymentId)</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  placeholder="Contoh: PAY-170..."
+                  onChange={(e)=> setPaymentId(e?.target?.value?.trim())}
+                />
+              </div>
+              <Button
+                onClick={()=>{
+                  if (!paymentId || paymentId?.length < 6) {
+                    setError('Masukkan nomor referensi yang valid');
+                  } else {
+                    setError('');
+                  }
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Gunakan Referensi
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Upload Payment Proof (for transfer method) */}
         {paymentMethod === 'transfer' && paymentId && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
