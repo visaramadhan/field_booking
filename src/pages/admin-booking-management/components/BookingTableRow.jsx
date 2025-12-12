@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import BookingStatusIndicator from '../../../components/navigation/BookingStatusIndicator';
+import { getPaymentsByBooking, createPayment, uploadPaymentProof } from '../../../services/paymentService';
 
-const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetails, isExpanded }) => {
+const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetails, isExpanded, onApprovePayment }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleApprove = async () => {
@@ -30,6 +31,47 @@ const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetai
       currency: 'IDR',
       minimumFractionDigits: 0
     })?.format(amount);
+  };
+
+  const [proofURL, setProofURL] = useState(null);
+  const [adminMethod, setAdminMethod] = useState('cash');
+  const [adminFile, setAdminFile] = useState(null);
+  useEffect(()=>{
+    (async ()=>{
+      try {
+        const res = await getPaymentsByBooking(booking?.id);
+        const p = res?.success ? (res?.payments?.[0] || null) : null;
+        setProofURL(p?.proofURL || null);
+      } catch(_) {}
+    })();
+  }, [booking?.id]);
+
+  const handleAdminRecordPayment = async () => {
+    try {
+      const res = await getPaymentsByBooking(booking?.id);
+      const existing = res?.success ? (res?.payments?.[0] || null) : null;
+      let paymentId = existing?.paymentId || null;
+      if (!paymentId) {
+        const cRes = await createPayment({
+          bookingId: booking?.id,
+          userId: 'admin-action',
+          totalAmount: Number(booking?.totalPrice || 0),
+          paymentMethod: adminMethod,
+          currency: 'IDR',
+          source: 'admin_manual'
+        });
+        if (!cRes?.success) throw new Error(cRes?.error || 'Gagal membuat pembayaran');
+        paymentId = cRes?.paymentId;
+      }
+      if (adminMethod === 'transfer' && adminFile) {
+        const uRes = await uploadPaymentProof(paymentId, adminFile);
+        if (!uRes?.success) throw new Error(uRes?.error || 'Gagal upload bukti');
+        setProofURL(uRes?.proofURL || null);
+      }
+      window.showNotification && window.showNotification({ type:'success', message:'Pembayaran manual tercatat' });
+    } catch (e) {
+      window.showNotification && window.showNotification({ type:'error', message: e?.message || 'Terjadi kesalahan' });
+    }
   };
 
   const formatDateTime = (dateString, timeString) => {
@@ -115,6 +157,16 @@ const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetai
                 </Button>
               </>
             )}
+            {booking?.paymentStatus === 'verification_pending' && (
+              <Button
+                variant="success"
+                size="xs"
+                iconName="Check"
+                onClick={() => onApprovePayment(booking?.id)}
+              >
+                Setujui Pembayaran
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="xs"
@@ -161,7 +213,7 @@ const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetai
                   </div>
                 </div>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <h4 className="font-semibold text-foreground flex items-center space-x-2">
                   <Icon name="MessageSquare" size={18} />
                   <span>Catatan & Permintaan Khusus</span>
@@ -171,14 +223,43 @@ const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetai
                     {booking?.specialRequests || "Tidak ada permintaan khusus"}
                   </p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Catatan Admin:</label>
-                  <textarea
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                    rows="3"
-                    placeholder="Tambahkan catatan internal..."
-                    defaultValue={booking?.adminNotes}
-                  />
+                {proofURL && (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-foreground flex items-center space-x-2">
+                      <Icon name="Image" size={18} />
+                      <span>Bukti Pembayaran</span>
+                    </h4>
+                    <div className="bg-background rounded-lg p-2 border border-border">
+                      <img src={proofURL} alt="Bukti Pembayaran" className="max-h-64 w-auto object-contain" onError={(e)=>{e.target.style.display='none'}} />
+                    </div>
+                  </div>
+                )}
+                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Catatan Admin:</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                  rows="3"
+                  placeholder="Tambahkan catatan internal..."
+                  defaultValue={booking?.adminNotes}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1">Metode Pembayaran (Manual)</label>
+                    <select className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" value={adminMethod} onChange={(e)=>setAdminMethod(e?.target?.value)}>
+                      <option value="cash">Cash</option>
+                      <option value="transfer">Transfer</option>
+                    </select>
+                  </div>
+                  {adminMethod === 'transfer' && (
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1">Upload Bukti</label>
+                      <input type="file" accept="image/*" onChange={(e)=>setAdminFile(e?.target?.files?.[0] || null)} className="w-full" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-end">
+                  <Button variant="outline" size="sm" iconName="Receipt" iconPosition="left" onClick={handleAdminRecordPayment}>Catat Pembayaran</Button>
                 </div>
               </div>
             </div>

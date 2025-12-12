@@ -9,7 +9,7 @@ import BookingDetailsForm from './component/BookingDetailsForm';
 import BookingPolicySection from './component/BookingPolicySection';
 import BookingActions from './component/BookingActions';
 import { listenBookings, createBooking } from '../../services/bookingService';
-import { listenSchedules } from '../../services/scheduleService';
+import { getBusinessSettings } from '../../services/settingsService';
 import { auth } from '../../config/firebase';
 
 const BookingForm = () => {
@@ -38,7 +38,7 @@ const BookingForm = () => {
     phoneNumber: '',
     specialRequirements: ''
   });
-  const [schedules, setSchedules] = useState([]);
+  const [businessSettings, setBusinessSettings] = useState({ weekdayHours:{ start:'08:00', end:'22:00' }, weekendHours:{ start:'06:00', end:'24:00' }, holidays:[] });
   const [bookings, setBookings] = useState([]);
 
   const [errors, setErrors] = useState({});
@@ -48,9 +48,12 @@ const BookingForm = () => {
     const storedUserRole = localStorage.getItem('userRole') || 'customer';
     setUserName(storedUserName);
     setUserRole(storedUserRole);
-    const unsubSchedules = listenSchedules((items)=> setSchedules(items || []));
     const unsubBookings = listenBookings((items)=> setBookings(items || []));
-    return ()=> { if (unsubSchedules) unsubSchedules(); if (unsubBookings) unsubBookings(); };
+    (async ()=>{
+      const res = await getBusinessSettings();
+      if (res?.success && res?.data) setBusinessSettings(res?.data);
+    })();
+    return ()=> { if (unsubBookings) unsubBookings(); };
   }, []);
 
   const validateForm = () => {
@@ -70,11 +73,18 @@ const BookingForm = () => {
     if (!formData?.startTime) {
       newErrors.startTime = 'Waktu mulai wajib diisi';
     } else {
-      const [hours] = formData?.startTime?.split(':');
-      const hour = parseInt(hours);
-      if (hour < 6 || hour >= 23) {
-        newErrors.startTime = 'Waktu operasional: 06:00 - 23:00 WIB';
-      }
+      try {
+        const d = new Date(formData?.bookingDate);
+        const day = d?.getDay();
+        const isWeekend = day === 0 || day === 6;
+        const hours = isWeekend ? (businessSettings?.weekendHours || { start:'06:00', end:'24:00' }) : (businessSettings?.weekdayHours || { start:'08:00', end:'22:00' });
+        const [startH] = (hours?.start || '08:00')?.split(':')?.map(Number);
+        const [endH] = (hours?.end || '22:00')?.split(':')?.map(Number);
+        const [hSel] = formData?.startTime?.split(':')?.map(Number);
+        if (hSel < startH || hSel >= endH) {
+          newErrors.startTime = `Waktu operasional: ${hours?.start} - ${hours?.end} WIB`;
+        }
+      } catch(_) {}
     }
 
     if (!formData?.duration) {
@@ -114,21 +124,12 @@ const BookingForm = () => {
     }
   };
 
-  const availableScheduleOptions = (()=>{
-    const fieldId = fieldData?.id?.toString();
-    const todayISO = new Date()?.toISOString()?.split('T')?.[0];
-    const isBooked = (sc)=> bookings?.some(b=> b?.fieldId?.toString() === fieldId && b?.date === sc?.date && b?.startTime === sc?.startTime && (b?.status === 'pending' || b?.status === 'confirmed'));
-    return schedules
-      ?.filter(sc => sc?.fieldId?.toString() === fieldId && sc?.date >= todayISO)
-      ?.filter(sc => !isBooked(sc))
-      ?.sort((a,b)=> (a?.date?.localeCompare(b?.date)) || (a?.startTime?.localeCompare(b?.startTime)))
-      ?.map(sc => ({
-        value: `${sc?.date} ${sc?.startTime}`,
-        label: `${sc?.date} • ${sc?.startTime} - ${sc?.endTime}`,
-        date: sc?.date,
-        startTime: sc?.startTime
-      }));
-  })();
+  const isHoliday = (dateStr)=>{
+    try {
+      const iso = new Date(dateStr)?.toISOString()?.split('T')?.[0];
+      return (businessSettings?.holidays || [])?.includes(iso);
+    } catch(_) { return false; }
+  };
 
   const handleSubmit = async () => {
     if (!validateForm()) {
@@ -140,6 +141,14 @@ const BookingForm = () => {
     }
     setIsSubmitting(true);
     try {
+      const fieldId = fieldData?.id?.toString();
+      const conflict = bookings?.some(b=> b?.fieldId?.toString() === fieldId && b?.date === formData?.bookingDate && b?.startTime === formData?.startTime && (b?.status === 'pending' || b?.status === 'confirmed'));
+      if (isHoliday(formData?.bookingDate)) {
+        throw new Error('Tanggal yang dipilih adalah hari libur.');
+      }
+      if (conflict) {
+        throw new Error('Slot waktu sudah terisi, pilih waktu lain.');
+      }
       const bookingPayload = {
         userId: auth?.currentUser?.uid || localStorage.getItem('userId') || `guest-${Date.now()}`,
         userName: localStorage.getItem('userName') || 'Pengguna',
@@ -161,18 +170,7 @@ const BookingForm = () => {
           type: 'success',
           message: 'Booking berhasil dibuat'
         });
-        navigate('/payment-management', {
-          state: {
-            bookingData: {
-              bookingId,
-              fieldName: bookingPayload?.fieldName,
-              date: bookingPayload?.date,
-              time: `${bookingPayload?.startTime}`,
-              duration: bookingPayload?.duration,
-              totalAmount: bookingPayload?.totalPrice
-            }
-          }
-        });
+        navigate('/my-bookings');
       } else {
         window.showNotification({
           type: 'error',
@@ -234,31 +232,7 @@ const BookingForm = () => {
                 </div>
               </div>
 
-              <div className="bg-card rounded-lg border border-border p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-md font-semibold text-foreground">Pilih dari Jadwal Tersedia</h3>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Jadwal</label>
-                  <select
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
-                    value={availableScheduleOptions?.find(opt=> opt?.date === formData?.bookingDate && opt?.startTime === formData?.startTime)?.value || ''}
-                    onChange={(e)=>{
-                      const val = e?.target?.value;
-                      const opt = availableScheduleOptions?.find(o=> o?.value === val);
-                      if (opt) {
-                        setFormData(prev=> ({ ...prev, bookingDate: opt?.date, startTime: opt?.startTime, duration: prev?.duration || '1' }));
-                      }
-                    }}
-                  >
-                    <option value="">-- pilih jadwal tersedia --</option>
-                    {availableScheduleOptions?.map((opt, idx)=> (
-                      <option key={idx} value={opt?.value}>{opt?.label}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-2">Memilih jadwal akan mengisi tanggal dan waktu otomatis.</p>
-                </div>
-              </div>
+              
                 <BookingDetailsForm
                   formData={formData}
                   errors={errors}

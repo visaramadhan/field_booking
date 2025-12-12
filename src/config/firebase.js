@@ -7,7 +7,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCgb3vJ4w_rimY3yt5ItJqWvCkfU2r1e98",
   authDomain: "field-rental-48318.firebaseapp.com",
   projectId: "field-rental-48318",
-  storageBucket: "field-rental-48318.firebasestorage.app",
+  storageBucket: "field-rental-48318.appspot.com",
   messagingSenderId: "107285017924",
   appId: "1:107285017924:web:4a8a5bfbdbba151c941311",
   measurementId: "G-1B6D2PSDE4"

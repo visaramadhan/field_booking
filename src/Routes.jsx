@@ -12,6 +12,7 @@ import UserProfile from './pages/user-profile';
 import BookingForm from './pages/booking-form';
 import PaymentManagement from './pages/payment-management';
 import UserRegistration from './pages/user-registration';
+import MyBookings from './pages/my-bookings';
 
 const Routes = () => {
   return (
@@ -30,6 +31,7 @@ const Routes = () => {
         <Route path="/booking-form" element={<BookingForm />} />
         <Route path="/payment-management" element={<PaymentManagement />} />
         <Route path="/user-registration" element={<UserRegistration />} />
+        <Route path="/my-bookings" element={<MyBookings />} />
         <Route path="*" element={<NotFound />} />
       </RouterRoutes>
       </ErrorBoundary>

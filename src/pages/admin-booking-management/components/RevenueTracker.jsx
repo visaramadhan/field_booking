@@ -69,7 +69,7 @@ const RevenueTracker = ({ revenueData }) => {
           </span>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground">Pendapatan Bulan Ini</p>
+          <p className="text-sm text-muted-foreground">Pendapatan November</p>
           <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(revenueData?.thisMonth)}</p>
         </div>
       </div>

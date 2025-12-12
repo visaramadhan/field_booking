@@ -13,7 +13,7 @@ import FieldFormModal from './component/FieldFormModal';
 import FieldDetailsModal from './component/FieldDetailsModal';
 import DeleteConfirmationModal from './component/DeleteConfirmationModal';
 import FieldAnalytics from './component/FieldAnalytics';
-import { createScheduleSlot, listenSchedules } from '../../services/scheduleService';
+import { getBusinessSettings, saveBusinessSettings } from '../../services/settingsService';
 import { listenFields, createField, updateField, deleteField } from '../../services/fieldService';
 
 const AdminFieldManagement = () => {
@@ -27,8 +27,11 @@ const AdminFieldManagement = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedField, setSelectedField] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ fieldName:'', date:'', startTime:'', endTime:'' });
-  const [schedules, setSchedules] = useState([]);
+  const [businessSettings, setBusinessSettings] = useState({
+    weekdayHours: { start: '08:00', end: '22:00' },
+    weekendHours: { start: '06:00', end: '24:00' },
+    holidays: []
+  });
 
   const mockFields = [];
 
@@ -38,8 +41,13 @@ const AdminFieldManagement = () => {
       setFields(items || []);
       setFilteredFields(items || []);
     });
-    const unsubSchedules = listenSchedules((items)=> setSchedules(items || []));
-    return () => { if (unsubFields) unsubFields(); if (unsubSchedules) unsubSchedules(); };
+    (async ()=>{
+      const res = await getBusinessSettings();
+      if (res?.success && res?.data) {
+        setBusinessSettings(res?.data);
+      }
+    })();
+    return () => { if (unsubFields) unsubFields(); };
   }, []);
 
   useEffect(() => {
@@ -262,60 +270,54 @@ const AdminFieldManagement = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Icon name="Calendar" size={20} color="var(--color-primary)" />
+                  <Icon name="Clock" size={20} color="var(--color-primary)" />
                 </div>
-                <h2 className="text-lg font-semibold text-foreground">Buat Jadwal Lapangan</h2>
+                <h2 className="text-lg font-semibold text-foreground">Pengaturan Jam Operasional & Tanggal Libur</h2>
               </div>
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Pilih Lapangan</label>
-                <select
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
-                  value={scheduleForm?.fieldId || ''}
-                  onChange={(e)=>{
-                    const id = e?.target?.value;
-                    const f = fields?.find(fl=> fl?.id?.toString() === id);
-                    setScheduleForm(prev=> ({ ...prev, fieldId:id, fieldName: f?.name || '' }));
-                  }}
-                >
-                  <option value="">-- pilih lapangan --</option>
-                  {fields?.map(f=> (
-                    <option key={f?.id} value={f?.id}>{f?.name}</option>
-                  ))}
-                </select>
-              </div>
-              <Input label="Tanggal" type="date" value={scheduleForm?.date} onChange={(e)=>setScheduleForm({...scheduleForm, date:e?.target?.value})} />
-              <Input label="Waktu Mulai" type="time" value={scheduleForm?.startTime} onChange={(e)=>setScheduleForm({...scheduleForm, startTime:e?.target?.value})} />
-              <Input label="Waktu Selesai" type="time" value={scheduleForm?.endTime} onChange={(e)=>setScheduleForm({...scheduleForm, endTime:e?.target?.value})} />
-            </div>
-            <div className="flex items-center justify-end mt-4">
               <Button
-                variant="success"
+                variant="default"
                 iconName="Save"
                 iconPosition="left"
                 onClick={async ()=>{
-                  const res = await createScheduleSlot({ ...scheduleForm, status:'available' });
+                  const res = await saveBusinessSettings(businessSettings);
                   if (res?.success) {
-                    window.showNotification && window.showNotification({ type:'success', message:'Jadwal berhasil dibuat' });
-                    setScheduleForm({ fieldId:'', fieldName:'', date:'', startTime:'', endTime:'' });
+                    window.showNotification && window.showNotification({ type:'success', message:'Pengaturan operasional tersimpan' });
                   } else {
-                    window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat jadwal' });
+                    window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal menyimpan pengaturan' });
                   }
                 }}
               >
-                Simpan Jadwal
+                Simpan Pengaturan
               </Button>
             </div>
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2">Jadwal Terbaru</h3>
-              <div className="grid md:grid-cols-2 gap-2">
-                {schedules?.slice(0,6)?.map((sc)=>(
-                  <div key={sc?.id} className="p-3 border border-border rounded">
-                    <div className="text-sm font-medium text-foreground">{sc?.fieldName}</div>
-                    <div className="text-xs text-muted-foreground">{sc?.date} • {sc?.startTime} - {sc?.endTime}</div>
-                  </div>
-                ))}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground">Senin - Jumat</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input label="Mulai" type="time" value={businessSettings?.weekdayHours?.start} onChange={(e)=>setBusinessSettings(prev=>({ ...prev, weekdayHours:{ ...prev?.weekdayHours, start:e?.target?.value } }))} />
+                  <Input label="Selesai" type="time" value={businessSettings?.weekdayHours?.end} onChange={(e)=>setBusinessSettings(prev=>({ ...prev, weekdayHours:{ ...prev?.weekdayHours, end:e?.target?.value } }))} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground">Sabtu - Minggu</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input label="Mulai" type="time" value={businessSettings?.weekendHours?.start} onChange={(e)=>setBusinessSettings(prev=>({ ...prev, weekendHours:{ ...prev?.weekendHours, start:e?.target?.value } }))} />
+                  <Input label="Selesai" type="time" value={businessSettings?.weekendHours?.end} onChange={(e)=>setBusinessSettings(prev=>({ ...prev, weekendHours:{ ...prev?.weekendHours, end:e?.target?.value } }))} />
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-foreground mb-2">Tanggal Libur (YYYY-MM-DD, pisahkan dengan koma)</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                  value={(businessSettings?.holidays || [])?.join(',')}
+                  onChange={(e)=>{
+                    const val = e?.target?.value;
+                    const arr = val?.split(',')?.map(s=> s?.trim())?.filter(Boolean);
+                    setBusinessSettings(prev=> ({ ...prev, holidays: arr }));
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-2">Contoh: 2025-12-25, 2026-01-01</p>
               </div>
             </div>
           </div>

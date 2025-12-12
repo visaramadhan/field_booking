@@ -23,8 +23,7 @@ const BookingModal = ({ field, selectedDate, selectedTime, onClose, onConfirm })
   };
 
   const calculateTotal = () => {
-    const price = field?.pricePerHour || field?.price || 0;
-    return price * duration;
+    return Number(field?.pricePerHour || field?.price || 0) * duration;
   };
 
   const handleConfirm = () => {
@@ -74,7 +73,7 @@ const BookingModal = ({ field, selectedDate, selectedTime, onClose, onConfirm })
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Harga per Jam:</span>
-                <span className="font-medium text-foreground">Rp {field?.price?.toLocaleString('id-ID')}</span>
+                <span className="font-medium text-foreground">Rp {Number(field?.pricePerHour || field?.price)?.toLocaleString('id-ID')}</span>
               </div>
             </div>
           </div>

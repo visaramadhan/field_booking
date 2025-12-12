@@ -3,7 +3,7 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import BookingStatusIndicator from '../../../components/navigation/BookingStatusIndicator';
 
-const MobileBookingCard = ({ booking, onApprove, onReject, onDelete }) => {
+const MobileBookingCard = ({ booking, onApprove, onReject, onDelete, onApprovePayment }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -105,6 +105,19 @@ const MobileBookingCard = ({ booking, onApprove, onReject, onDelete }) => {
               fullWidth
             >
               Tolak
+            </Button>
+          </div>
+        )}
+        {booking?.paymentStatus === 'verification_pending' && (
+          <div className="pt-2">
+            <Button
+              variant="success"
+              size="sm"
+              iconName="Check"
+              onClick={() => onApprovePayment(booking?.id)}
+              fullWidth
+            >
+              Setujui Pembayaran
             </Button>
           </div>
         )}

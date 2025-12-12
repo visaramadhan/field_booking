@@ -74,7 +74,7 @@ const FieldListView = ({ fields, onViewDetails, onBookField }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Harga per Jam</p>
                 <p className="text-xl font-bold text-primary">
-                  Rp {field?.price?.toLocaleString('id-ID')}
+                  Rp {Number(field?.pricePerHour || field?.price)?.toLocaleString('id-ID')}
                 </p>
               </div>
               <div className="flex items-center space-x-2">
@@ -90,8 +90,9 @@ const FieldListView = ({ fields, onViewDetails, onBookField }) => {
                   iconName="Calendar"
                   iconPosition="left"
                   onClick={() => onBookField(field)}
+                  disabled={field?.status !== 'active'}
                 >
-                  Booking
+                  {field?.status === 'active' ? 'Booking' : 'Tidak Aktif'}
                 </Button>
               </div>
             </div>

@@ -51,8 +51,10 @@ export const createPayment = async (paymentData) => {
 // Upload payment proof
 export const uploadPaymentProof = async (paymentId, proofFile) => {
   try {
-    const storageRef = ref(storage, `payment-proofs/${paymentId}`);
-    const snapshot = await uploadBytes(storageRef, proofFile);
+    const fileName = `${Date.now()}_${proofFile?.name || 'proof'}`;
+    const storageRef = ref(storage, `payment-proofs/${paymentId}/${fileName}`);
+    const metadata = { contentType: proofFile?.type || 'image/jpeg' };
+    const snapshot = await uploadBytes(storageRef, proofFile, metadata);
     const proofURL = await getDownloadURL(snapshot?.ref);
 
     const paymentRef = doc(db, 'payments', paymentId);
@@ -142,6 +144,21 @@ export const getUserPayments = async (userId) => {
   }
 };
 
+export const getPaymentsByBooking = async (bookingId) => {
+  try {
+    const paymentsQuery = query(
+      collection(db, 'payments'),
+      where('bookingId', '==', bookingId),
+      orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(paymentsQuery);
+    const payments = querySnapshot?.docs?.map(doc => ({ id: doc?.id, ...doc?.data() }));
+    return { success: true, payments };
+  } catch (error) {
+    return { success: false, error: error?.message };
+  }
+};
+
 // Update payment status (for admin)
 export const updatePaymentStatus = async (paymentId, status, notes = '') => {
   try {
@@ -163,6 +180,29 @@ export const updatePaymentStatus = async (paymentId, status, notes = '') => {
           updatedAt: serverTimestamp()
         });
       }
+      if (status === 'approved') {
+        try {
+          const existsQ = query(collection(db, 'financials'), where('paymentId', '==', paymentId));
+          const existsSnap = await getDocs(existsQ);
+          const alreadyRecorded = existsSnap && existsSnap?.docs && existsSnap?.docs?.length > 0;
+          if (!alreadyRecorded) {
+            const financeId = `FIN-${Date.now()}-${Math.random()?.toString(36)?.substr(2, 9)}`;
+            const financeRef = doc(db, 'financials', financeId);
+            await setDoc(financeRef, {
+              financeId,
+              paymentId,
+              bookingId: data?.bookingId || null,
+              userId: data?.userId || null,
+              amount: data?.totalAmount || 0,
+              method: data?.paymentMethod || 'unknown',
+              source: data?.source || 'user',
+              status: 'recorded',
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
+        } catch (_) {}
+      }
     } catch (_) {}
     
     return {
@@ -178,6 +218,15 @@ export const updatePaymentStatus = async (paymentId, status, notes = '') => {
 
 export const listenPayments = (callback) => {
   const q = query(collection(db, 'payments'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const items = snapshot?.docs?.map((d) => ({ id: d?.id, ...d?.data() }));
+    callback(items);
+  });
+};
+
+
+export const listenFinancials = (callback) => {
+  const q = query(collection(db, 'financials'), orderBy('createdAt', 'desc'));
   return onSnapshot(q, (snapshot) => {
     const items = snapshot?.docs?.map((d) => ({ id: d?.id, ...d?.data() }));
     callback(items);

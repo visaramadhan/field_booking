@@ -12,7 +12,7 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { listenFields } from '../../services/fieldService';
 import { listenBookings, createBooking } from '../../services/bookingService';
-import { listenSchedules } from '../../services/scheduleService';
+import { getBusinessSettings } from '../../services/settingsService';
 import { auth } from '../../config/firebase';
 
 const FieldSchedule = () => {
@@ -35,7 +35,7 @@ const FieldSchedule = () => {
 
   const [fields, setFields] = useState([]);
   const [bookings, setBookings] = useState([]);
-  const [schedules, setSchedules] = useState([]);
+  const [businessSettings, setBusinessSettings] = useState({ weekdayHours:{ start:'08:00', end:'22:00' }, weekendHours:{ start:'06:00', end:'24:00' }, holidays:[] });
 
 
   const mockBookings = [
@@ -80,8 +80,11 @@ const FieldSchedule = () => {
     setUserRole(storedUserRole);
     const unsubFields = listenFields((items)=> setFields(items || []));
     const unsubBookings = listenBookings((items)=> setBookings(items || []));
-    const unsubSchedules = listenSchedules((items)=> setSchedules(items || []));
-    return ()=>{ if (unsubFields) unsubFields(); if (unsubBookings) unsubBookings(); if (unsubSchedules) unsubSchedules(); };
+    (async ()=>{
+      const res = await getBusinessSettings();
+      if (res?.success && res?.data) setBusinessSettings(res?.data);
+    })();
+    return ()=>{ if (unsubFields) unsubFields(); if (unsubBookings) unsubBookings(); };
   }, []);
 
   const handleFilterChange = (filterName, value) => {
@@ -268,8 +271,8 @@ const FieldSchedule = () => {
           onDateChange={setSelectedDate}
           fields={filteredFields}
           bookings={transformedBookings}
-          schedules={schedules}
-          onBookSlot={handleBookSlot} /> :
+          onBookSlot={handleBookSlot}
+          businessSettings={businessSettings} /> :
 
 
         <FieldListView

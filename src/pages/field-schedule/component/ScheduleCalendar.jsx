@@ -2,15 +2,45 @@ import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
-const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, schedules, onBookSlot }) => {
+const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBookSlot, businessSettings }) => {
   const [viewMode, setViewMode] = useState('week');
   const [currentWeekStart, setCurrentWeekStart] = useState(new Date());
 
-  const timeSlots = [
-    '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-    '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-    '18:00', '19:00', '20:00', '21:00', '22:00'
-  ];
+  const generateSlotsForDate = (date) => {
+    const day = date?.getDay();
+    const isWeekend = day === 0 || day === 6;
+    const hours = isWeekend ? (businessSettings?.weekendHours || { start:'06:00', end:'24:00' }) : (businessSettings?.weekdayHours || { start:'08:00', end:'22:00' });
+    const [startH, startM] = (hours?.start || '08:00')?.split(':')?.map(Number);
+    const [endH, endM] = (hours?.end || '22:00')?.split(':')?.map(Number);
+    const slots = [];
+    for (let h = startH; h <= endH; h++) {
+      const hh = String(h)?.padStart(2,'0');
+      slots.push(`${hh}:00`);
+    }
+    return slots;
+  };
+
+  const getWeekSlots = () => {
+    const dates = getWeekDates();
+    const hoursForDay = (date) => {
+      const day = date?.getDay();
+      const isWeekend = day === 0 || day === 6;
+      return isWeekend ? (businessSettings?.weekendHours || { start:'06:00', end:'24:00' }) : (businessSettings?.weekdayHours || { start:'08:00', end:'22:00' });
+    };
+    let minStart = 24, maxEnd = 0;
+    dates?.forEach(d => {
+      const h = hoursForDay(d);
+      const [sH] = (h?.start || '08:00')?.split(':')?.map(Number);
+      const [eH] = (h?.end || '22:00')?.split(':')?.map(Number);
+      minStart = Math.min(minStart, sH);
+      maxEnd = Math.max(maxEnd, eH);
+    });
+    const slots = [];
+    for (let h = minStart; h <= maxEnd; h++) {
+      slots.push(`${String(h)?.padStart(2,'0')}:00`);
+    }
+    return slots;
+  };
 
   useEffect(() => {
     const today = new Date();
@@ -44,28 +74,6 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, schedu
     );
   };
 
-  const toISODate = (date) => {
-    const day = String(date?.getDate())?.padStart(2, '0');
-    const month = String(date?.getMonth() + 1)?.padStart(2, '0');
-    const year = date?.getFullYear();
-    return `${year}-${month}-${day}`;
-  };
-
-  const isSlotScheduled = (fieldId, date, time) => {
-    const iso = toISODate(date);
-    const [hh, mm] = time?.split(':')?.map((x)=>parseInt(x));
-    const slotMinutes = hh * 60 + (mm || 0);
-    return schedules?.some(sc => {
-      if (sc?.fieldId?.toString() !== fieldId?.toString()) return false;
-      if ((sc?.date || '') !== iso) return false;
-      const [sh, sm] = (sc?.startTime || '00:00')?.split(':')?.map((x)=>parseInt(x));
-      const [eh, em] = (sc?.endTime || '00:00')?.split(':')?.map((x)=>parseInt(x));
-      const startM = (sh||0)*60 + (sm||0);
-      const endM = (eh||0)*60 + (em||0);
-      return slotMinutes >= startM && slotMinutes < endM;
-    });
-  };
-
   const formatDate = (date) => {
     const day = String(date?.getDate())?.padStart(2, '0');
     const month = String(date?.getMonth() + 1)?.padStart(2, '0');
@@ -89,6 +97,21 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, schedu
     const [hours, minutes] = time?.split(':');
     slotDate?.setHours(parseInt(hours), parseInt(minutes), 0, 0);
     return slotDate < now;
+  };
+
+  const isHoliday = (date) => {
+    const iso = date?.toISOString()?.split('T')?.[0];
+    return (businessSettings?.holidays || [])?.includes(iso);
+  };
+
+  const isWithinBusinessHours = (date, time) => {
+    const day = date?.getDay();
+    const isWeekend = day === 0 || day === 6;
+    const hours = isWeekend ? (businessSettings?.weekendHours || { start:'06:00', end:'24:00' }) : (businessSettings?.weekdayHours || { start:'08:00', end:'22:00' });
+    const [tH] = (time || '00:00')?.split(':')?.map(Number);
+    const [sH] = (hours?.start || '08:00')?.split(':')?.map(Number);
+    const [eH] = (hours?.end || '22:00')?.split(':')?.map(Number);
+    return tH >= sH && tH <= eH;
   };
 
   const weekDates = getWeekDates();
@@ -174,57 +197,58 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, schedu
 
           {/* Time Slots Grid */}
           <div className="divide-y divide-border">
-            {timeSlots?.map((time) => (
+            {getWeekSlots()?.map((time) => (
               <div key={time} className="grid grid-cols-8">
-                <div className="p-3 text-sm font-medium text-muted-foreground border-r border-border">
-                  {time}
-                </div>
-                {weekDates?.map((date, dateIndex) => (
-                  <div
-                    key={dateIndex}
-                    className="p-2 border-r border-border hover:bg-muted/50 transition-smooth"
-                  >
-                    <div className="space-y-1">
-                      {fields?.map((field) => {
-                        const isBooked = isSlotBooked(field?.id, date, time);
-                        const isScheduled = isSlotScheduled(field?.id, date, time);
-                        const isPast = isPastSlot(date, time);
-                        
-                        return (
-                          <div
-                            key={field?.id}
-                            className={`p-2 rounded text-xs ${
-                              isPast
-                                ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                : isBooked
-                                ? 'bg-error/10 text-error'
-                                : isScheduled
-                                ? 'bg-success/10 text-success cursor-pointer hover:bg-success/20'
-                                : 'bg-muted text-muted-foreground cursor-not-allowed'
-                            }`}
-                            onClick={() => {
-                              if (!isBooked && !isPast && isScheduled) {
-                                onBookSlot(field, date, time);
-                              }
-                            }}
-                          >
-                            <div className="font-medium truncate">{field?.name}</div>
-                            <div className="flex items-center justify-between mt-1">
-                              <span className="text-[10px]">
-                                {isBooked ? 'Terisi' : isPast ? 'Lewat' : (isScheduled ? 'Tersedia' : 'Tidak Tersedia')}
-                              </span>
-                              {!isBooked && !isPast && (
-                                <span className="text-[10px] font-semibold">
-                                  Rp {(field?.pricePerHour || field?.price)?.toLocaleString('id-ID')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                <div className="p-3 text-sm font-medium text-muted-foreground border-r border-border">{time}</div>
+                {weekDates?.map((date, dateIndex) => {
+                  const holiday = isHoliday(date);
+                  const activeSlot = isWithinBusinessHours(date, time) && !holiday;
+                  return (
+                    <div key={dateIndex} className="p-2 border-r border-border">
+                      {!activeSlot ? (
+                        <div className="p-2 rounded text-xs bg-muted text-muted-foreground">{holiday ? 'Libur' : 'Di luar jam buka'}</div>
+                      ) : (
+                        <div className="space-y-1">
+                          {fields?.map((field) => {
+                            const isBooked = isSlotBooked(field?.id, date, time);
+                            const isPast = isPastSlot(date, time);
+                            const isInactive = field?.status !== 'active';
+                            const clickable = !isBooked && !isPast && !isInactive;
+                            return (
+                              <div
+                                key={`${field?.id}-${time}`}
+                                className={`p-2 rounded text-xs ${
+                                  isInactive || isPast
+                                    ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                    : isBooked
+                                    ? 'bg-error/10 text-error'
+                                    : 'bg-success/10 text-success cursor-pointer hover:bg-success/20'
+                                }`}
+                                onClick={() => {
+                                  if (clickable) {
+                                    onBookSlot(field, date, time);
+                                  }
+                                }}
+                              >
+                                <div className="font-medium truncate">{field?.name}</div>
+                                <div className="flex items-center justify-between mt-1">
+                                  <span className="text-[10px]">
+                                    {isInactive ? 'Tidak Aktif' : isBooked ? 'Terisi' : isPast ? 'Lewat' : 'Tersedia'}
+                                  </span>
+                                  {!isBooked && !isPast && !isInactive && (
+                                    <span className="text-[10px] font-semibold">
+                                      Rp {Number(field?.pricePerHour || field?.price)?.toLocaleString('id-ID')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
           </div>

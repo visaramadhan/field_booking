@@ -106,6 +106,16 @@ const PaymentManagement = () => {
       if (result?.success) {
         setPaymentId(result?.paymentId);
         setPaymentStatus('pending');
+        if (paymentMethod === 'transfer' && proofFile) {
+          setUploading(true);
+          const uploadRes = await uploadPaymentProof(result?.paymentId, proofFile);
+          setUploading(false);
+          if (uploadRes?.success) {
+            setPaymentStatus('verification_pending');
+          } else {
+            setError(uploadRes?.error || 'Gagal upload bukti pembayaran');
+          }
+        }
       } else {
         setError(result?.error || 'Gagal membuat pembayaran');
       }
@@ -455,10 +465,10 @@ const PaymentManagement = () => {
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Memproses...
+                Menyimpan...
               </>
             ) : (
-              'Lanjutkan Pembayaran'
+              'Simpan Pembayaran'
             )}
           </Button>
         )}
