@@ -9,7 +9,8 @@ import Icon from '../../components/AppIcon';
 import { auth, db } from '../../config/firebase';
 import { getUserBookings } from '../../services/bookingService';
 import { createPayment, uploadPaymentProof, getPaymentsByBooking } from '../../services/paymentService';
-import { getBankDetails } from '../../services/settingsService';
+import { storage } from '../../config/firebase';
+import { ref as storageRef, getDownloadURL as getStorageDownloadURL } from 'firebase/storage';
 
 const MyBookings = () => {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ const MyBookings = () => {
   const [uploadingId, setUploadingId] = useState(null);
   const [proofFiles, setProofFiles] = useState({});
   const [paymentMethods, setPaymentMethods] = useState({});
-  const [bankDetails, setBankDetails] = useState(null);
+  const [proofURLs, setProofURLs] = useState({});
 
   useEffect(() => {
     const n = localStorage.getItem('userName') || 'Pengguna';
@@ -40,11 +41,37 @@ const MyBookings = () => {
         const items = res?.bookings || [];
         setBookings(items?.sort((a,b)=> new Date(b?.date) - new Date(a?.date)));
       }
-      const bankRes = await getBankDetails();
-      if (bankRes?.success && bankRes?.data) setBankDetails(bankRes?.data);
     };
     load();
   }, [navigate]);
+
+  useEffect(()=>{
+    (async ()=>{
+      try {
+        const next = {};
+        for (const b of bookings || []) {
+          const id = b?.bookingId || b?.id;
+          if (!id) continue;
+          const res = await getPaymentsByBooking(id);
+          const p = res?.success ? (res?.payments?.[0] || null) : null;
+          let url = p?.proofURL || null;
+          if (url && !url?.includes('token=')) {
+            try {
+              const u = new URL(url);
+              const nameParam = u?.searchParams?.get('name');
+              const objectPath = nameParam ? decodeURIComponent(nameParam) : null;
+              if (objectPath) {
+                const fixed = await getStorageDownloadURL(storageRef(storage, objectPath));
+                url = fixed || url;
+              }
+            } catch(_) {}
+          }
+          if (url) next[id] = url;
+        }
+        setProofURLs(next);
+      } catch(_) {}
+    })();
+  }, [bookings]);
 
   const handleFileChange = (bookingId, file) => {
     setProofFiles(prev => ({ ...prev, [bookingId]: file }));
@@ -168,13 +195,31 @@ const MyBookings = () => {
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">Total</p>
                           <p className="text-lg font-bold text-foreground">Rp {b?.totalPrice?.toLocaleString('id-ID')}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="text-sm">
-                          <span className="px-2 py-1 rounded bg-warning/10 text-warning">{b?.status === 'pending' ? 'Menunggu Persetujuan' : b?.status === 'confirmed' ? 'Dikonfirmasi' : b?.status}</span>
-                          <span className="ml-2 px-2 py-1 rounded bg-muted/50 text-muted-foreground">{b?.paymentStatus === 'paid' ? 'Lunas' : b?.paymentStatus === 'verification_pending' ? 'Menunggu Verifikasi' : 'Belum Dibayar'}</span>
-                        </div>
+                  </div>
+                </div>
+
+                {proofURLs?.[b?.bookingId || b?.id] && (
+                  <div className="mt-3">
+                    <div className="text-sm font-medium text-foreground flex items-center space-x-2 mb-2">
+                      <Icon name="Image" size={16} />
+                      <span>Bukti Pembayaran</span>
+                    </div>
+                    <div className="bg-background rounded-lg p-2 border border-border">
+                      <img
+                        src={proofURLs?.[b?.bookingId || b?.id]}
+                        alt="Bukti Pembayaran"
+                        className="max-h-64 w-auto object-contain"
+                        onError={(e)=>{e.target.style.display='none'}}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-3">
+                  <div className="text-sm">
+                    <span className="px-2 py-1 rounded bg-warning/10 text-warning">{b?.status === 'pending' ? 'Menunggu Persetujuan' : b?.status === 'confirmed' ? 'Dikonfirmasi' : b?.status}</span>
+                    <span className="ml-2 px-2 py-1 rounded bg-muted/50 text-muted-foreground">{b?.paymentStatus === 'paid' ? 'Lunas' : b?.paymentStatus === 'verification_pending' ? 'Menunggu Verifikasi' : 'Belum Dibayar'}</span>
+                  </div>
                         {canUpload(b) && (
                           <div className="flex items-center space-x-2">
                             <select
@@ -207,13 +252,6 @@ const MyBookings = () => {
                                 Konfirmasi Cash
                               </Button>
                             )}
-                          </div>
-                        )}
-                        {b?.status === 'confirmed' && b?.paymentStatus !== 'paid' && bankDetails && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            <div>Silakan transfer ke:</div>
-                            <div>{bankDetails?.bankName} • {bankDetails?.accountNumber}</div>
-                            <div>a.n. {bankDetails?.accountName} {bankDetails?.branch ? `(${bankDetails?.branch})` : ''}</div>
                           </div>
                         )}
                       </div>

@@ -51,15 +51,15 @@ const BookingDetailsForm = ({ formData, errors, onChange }) => {
             error={errors?.startTime}
           />
         </div>
-
-        <Select
-          label="Durasi Booking"
-          options={durationOptions}
-          value={formData?.duration}
-          onChange={(value) => onChange({ target: { name: 'duration', value } })}
+        
+        <Input
+          label="Waktu Selesai"
+          type="time"
+          name="endTime"
+          value={formData?.endTime}
+          onChange={onChange}
           required
-          error={errors?.duration}
-          placeholder="Pilih durasi"
+          error={errors?.endTime}
         />
 
         <Select

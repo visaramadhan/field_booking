@@ -66,12 +66,19 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBook
   };
 
   const isSlotBooked = (fieldId, date, time) => {
-    return bookings?.some(booking => 
-      booking?.fieldId === fieldId &&
-      booking?.date === formatDate(date) &&
-      booking?.time === time &&
-      (booking?.status === 'confirmed' || booking?.status === 'pending')
-    );
+    const slotHour = parseInt((time || '00:00')?.split(':')?.[0] || '0', 10);
+    const dateStr = formatDate(date);
+    return bookings?.some((booking) => {
+      if (booking?.fieldId !== fieldId) return false;
+      if (booking?.date !== dateStr) return false;
+      const statusOk = booking?.status === 'confirmed' || booking?.status === 'pending';
+      if (!statusOk) return false;
+      const [startH] = String(booking?.startTime || booking?.time || '00:00')?.split(':')?.map(Number);
+      const [endHFromEnd] = String(booking?.endTime || '')?.split(':')?.map(Number);
+      const duration = Number(booking?.duration || 1);
+      const endH = Number.isFinite(endHFromEnd) && endHFromEnd > startH ? endHFromEnd : (Number.isFinite(duration) ? startH + duration : startH + 1);
+      return slotHour >= startH && slotHour < endH;
+    });
   };
 
   const formatDate = (date) => {
@@ -112,6 +119,17 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBook
     const [sH] = (hours?.start || '08:00')?.split(':')?.map(Number);
     const [eH] = (hours?.end || '22:00')?.split(':')?.map(Number);
     return tH >= sH && tH <= eH;
+  };
+  const isMaintenanceSlot = (field, date, time) => {
+    const iso = date?.toISOString()?.split('T')?.[0];
+    const [tH] = (time || '00:00')?.split(':')?.map(Number);
+    const periods = field?.maintenancePeriods || [];
+    return periods?.some((p) => {
+      if (p?.date !== iso) return false;
+      const [sH] = String(p?.start || '00:00')?.split(':')?.map(Number);
+      const [eH] = String(p?.end || '00:00')?.split(':')?.map(Number);
+      return tH >= sH && tH < eH;
+    });
   };
 
   const weekDates = getWeekDates();
@@ -168,91 +186,108 @@ const ScheduleCalendar = ({ selectedDate, onDateChange, fields, bookings, onBook
           </Button>
         </div>
       </div>
-      {/* Calendar Grid */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[1200px]">
-          {/* Day Headers */}
-          <div className="grid grid-cols-8 border-b border-border bg-muted/50">
-            <div className="p-3 text-sm font-medium text-muted-foreground">
-              Waktu
-            </div>
-            {weekDates?.map((date, index) => (
-              <div
-                key={index}
-                className={`p-3 text-center ${
-                  isToday(date) ? 'bg-primary/10' : ''
-                }`}
-              >
-                <div className="text-xs text-muted-foreground">
-                  {formatDayName(date)}
+      {/* Per-Field Calendar Tables */}
+      <div className="space-y-8">
+        {fields?.map((field) => {
+          const firstAvailable = (() => {
+            for (const date of weekDates) {
+              for (const time of getWeekSlots()) {
+                const holiday = isHoliday(date);
+                const active = isWithinBusinessHours(date, time) && !holiday;
+                const booked = isSlotBooked(field?.id, date, time);
+                const past = isPastSlot(date, time);
+                const inactive = field?.status !== 'active';
+                if (active && !booked && !past && !inactive) {
+                  return { date, time };
+                }
+              }
+            }
+            return null;
+          })();
+          return (
+            <div key={field?.id} className="border border-border rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between p-4 bg-muted/50 border-b border-border">
+                <div className="flex items-center space-x-2">
+                  <Icon name="MapPin" size={18} color="var(--color-primary)" />
+                  <span className="font-semibold text-foreground">{field?.name}</span>
                 </div>
-                <div className={`text-sm font-semibold ${
-                  isToday(date) ? 'text-primary' : 'text-foreground'
-                }`}>
-                  {date?.getDate()}
-                </div>
+                <Button
+                  variant="default"
+                  size="sm"
+                  iconName="Calendar"
+                  iconPosition="left"
+                  disabled={!firstAvailable}
+                  onClick={()=>{
+                    if (firstAvailable) onBookSlot(field, firstAvailable?.date, firstAvailable?.time);
+                  }}
+                >
+                  Buat Booking
+                </Button>
               </div>
-            ))}
-          </div>
-
-          {/* Time Slots Grid */}
-          <div className="divide-y divide-border">
-            {getWeekSlots()?.map((time) => (
-              <div key={time} className="grid grid-cols-8">
-                <div className="p-3 text-sm font-medium text-muted-foreground border-r border-border">{time}</div>
-                {weekDates?.map((date, dateIndex) => {
-                  const holiday = isHoliday(date);
-                  const activeSlot = isWithinBusinessHours(date, time) && !holiday;
-                  return (
-                    <div key={dateIndex} className="p-2 border-r border-border">
-                      {!activeSlot ? (
-                        <div className="p-2 rounded text-xs bg-muted text-muted-foreground">{holiday ? 'Libur' : 'Di luar jam buka'}</div>
-                      ) : (
-                        <div className="space-y-1">
-                          {fields?.map((field) => {
-                            const isBooked = isSlotBooked(field?.id, date, time);
-                            const isPast = isPastSlot(date, time);
-                            const isInactive = field?.status !== 'active';
-                            const clickable = !isBooked && !isPast && !isInactive;
-                            return (
+              <div className="overflow-x-auto">
+                <div className="min-w-[900px]">
+                  <div className="grid grid-cols-8 border-b border-border bg-muted/30">
+                    <div className="p-3 text-sm font-medium text-muted-foreground">Waktu</div>
+                    {weekDates?.map((date, index) => (
+                      <div key={index} className={`p-3 text-center ${isToday(date) ? 'bg-primary/10' : ''}`}>
+                        <div className="text-xs text-muted-foreground">{formatDayName(date)}</div>
+                        <div className={`text-sm font-semibold ${isToday(date) ? 'text-primary' : 'text-foreground'}`}>{date?.getDate()}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="divide-y divide-border">
+                    {getWeekSlots()?.map((time) => (
+                      <div key={time} className="grid grid-cols-8">
+                        <div className="p-3 text-sm font-medium text-muted-foreground border-r border-border">{time}</div>
+                        {weekDates?.map((date, dateIndex) => {
+                          const holiday = isHoliday(date);
+                          const activeSlot = isWithinBusinessHours(date, time) && !holiday;
+                          const isBooked = isSlotBooked(field?.id, date, time);
+                          const isPast = isPastSlot(date, time);
+                          const isMaintenance = field?.status === 'maintenance' || isMaintenanceSlot(field, date, time);
+                          const clickable = activeSlot && !isBooked && !isPast && field?.status === 'active';
+                          const cellClass = isMaintenance
+                            ? 'bg-error/10 text-error'
+                            : isBooked
+                            ? 'bg-success/10 text-success'
+                            : !activeSlot
+                            ? 'bg-muted text-muted-foreground'
+                            : isPast
+                            ? 'bg-muted text-muted-foreground'
+                            : 'bg-background hover:bg-success/10';
+                          const label = isMaintenance
+                            ? 'Maintenance'
+                            : isBooked
+                            ? 'Terisi'
+                            : !activeSlot
+                            ? (holiday ? 'Libur' : 'Di luar jam buka')
+                            : isPast
+                            ? 'Lewat'
+                            : 'Kosong';
+                          return (
+                            <div key={dateIndex} className="p-2 border-r border-border">
                               <div
-                                key={`${field?.id}-${time}`}
-                                className={`p-2 rounded text-xs ${
-                                  isInactive || isPast
-                                    ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                    : isBooked
-                                    ? 'bg-error/10 text-error'
-                                    : 'bg-success/10 text-success cursor-pointer hover:bg-success/20'
-                                }`}
-                                onClick={() => {
-                                  if (clickable) {
-                                    onBookSlot(field, date, time);
-                                  }
-                                }}
+                                className={`p-2 rounded text-xs ${cellClass} ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
+                                onClick={() => { if (clickable) onBookSlot(field, date, time); }}
                               >
-                                <div className="font-medium truncate">{field?.name}</div>
-                                <div className="flex items-center justify-between mt-1">
-                                  <span className="text-[10px]">
-                                    {isInactive ? 'Tidak Aktif' : isBooked ? 'Terisi' : isPast ? 'Lewat' : 'Tersedia'}
-                                  </span>
-                                  {!isBooked && !isPast && !isInactive && (
-                                    <span className="text-[10px] font-semibold">
-                                      Rp {Number(field?.pricePerHour || field?.price)?.toLocaleString('id-ID')}
-                                    </span>
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">{label}</span>
+                                  {field?.status === 'active' && !isBooked && activeSlot && !isPast && (
+                                    <span className="text-[10px] font-semibold">Rp {Number(field?.pricePerHour || field?.price)?.toLocaleString('id-ID')}</span>
                                   )}
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          );
+        })}
       </div>
       {/* Legend */}
       <div className="p-4 border-t border-border bg-muted/30">

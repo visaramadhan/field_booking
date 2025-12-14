@@ -1,11 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import BookingStatusIndicator from '../../../components/navigation/BookingStatusIndicator';
+import { getPaymentsByBooking } from '../../../services/paymentService';
+import { storage } from '../../../config/firebase';
+import { ref as storageRef, getDownloadURL as getStorageDownloadURL } from 'firebase/storage';
 
 const MobileBookingCard = ({ booking, onApprove, onReject, onDelete, onApprovePayment }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [proofURL, setProofURL] = useState(null);
+
+  useEffect(()=>{
+    (async ()=>{
+      try {
+        const res = await getPaymentsByBooking(booking?.bookingId || booking?.id);
+        const p = res?.success ? (res?.payments?.[0] || null) : null;
+        let url = p?.proofURL || null;
+        if (url && !url?.includes('token=')) {
+          try {
+            const u = new URL(url);
+            const nameParam = u?.searchParams?.get('name');
+            const objectPath = nameParam ? decodeURIComponent(nameParam) : null;
+            if (objectPath) {
+              const fixed = await getStorageDownloadURL(storageRef(storage, objectPath));
+              url = fixed || url;
+            }
+          } catch(_) {}
+        }
+        setProofURL(url);
+      } catch(_) {}
+    })();
+  }, [booking?.bookingId, booking?.id]);
 
   const handleApprove = async () => {
     setIsProcessing(true);
@@ -108,13 +134,13 @@ const MobileBookingCard = ({ booking, onApprove, onReject, onDelete, onApprovePa
             </Button>
           </div>
         )}
-        {booking?.paymentStatus === 'verification_pending' && (
+        {(booking?.paymentStatus === 'verification_pending' || booking?.paymentStatus === 'pending') && (
           <div className="pt-2">
             <Button
               variant="success"
               size="sm"
               iconName="Check"
-              onClick={() => onApprovePayment(booking?.id)}
+              onClick={() => onApprovePayment(booking?.bookingId || booking?.id)}
               fullWidth
             >
               Setujui Pembayaran
@@ -176,6 +202,18 @@ const MobileBookingCard = ({ booking, onApprove, onReject, onDelete, onApprovePa
                 </p>
               </div>
             </div>
+
+            {proofURL && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-foreground flex items-center space-x-2">
+                  <Icon name="Image" size={18} />
+                  <span>Bukti Pembayaran</span>
+                </h4>
+                <div className="bg-background rounded-lg p-2 border border-border">
+                  <img src={proofURL} alt="Bukti Pembayaran" className="max-h-64 w-auto object-contain" onError={(e)=>{e.target.style.display='none'}} />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Catatan Admin:</label>

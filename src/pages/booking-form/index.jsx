@@ -33,7 +33,7 @@ const BookingForm = () => {
   const [formData, setFormData] = useState({
     bookingDate: '',
     startTime: '',
-    duration: '',
+    endTime: '',
     purpose: '',
     phoneNumber: '',
     specialRequirements: ''
@@ -87,8 +87,24 @@ const BookingForm = () => {
       } catch(_) {}
     }
 
-    if (!formData?.duration) {
-      newErrors.duration = 'Durasi booking wajib dipilih';
+    if (!formData?.endTime) {
+      newErrors.endTime = 'Waktu selesai wajib diisi';
+    } else {
+      try {
+        const d = new Date(formData?.bookingDate);
+        const day = d?.getDay();
+        const isWeekend = day === 0 || day === 6;
+        const hours = isWeekend ? (businessSettings?.weekendHours || { start:'06:00', end:'24:00' }) : (businessSettings?.weekdayHours || { start:'08:00', end:'22:00' });
+        const [startH] = (hours?.start || '08:00')?.split(':')?.map(Number);
+        const [endH] = (hours?.end || '22:00')?.split(':')?.map(Number);
+        const [hStart] = formData?.startTime?.split(':')?.map(Number);
+        const [hEnd] = formData?.endTime?.split(':')?.map(Number);
+        if (hEnd <= hStart) {
+          newErrors.endTime = 'Waktu selesai harus setelah waktu mulai';
+        } else if (hEnd > endH || hEnd <= startH) {
+          newErrors.endTime = `Waktu operasional: ${hours?.start} - ${hours?.end} WIB`;
+        }
+      } catch(_) {}
     }
 
     if (!formData?.purpose) {
@@ -142,7 +158,18 @@ const BookingForm = () => {
     setIsSubmitting(true);
     try {
       const fieldId = fieldData?.id?.toString();
-      const conflict = bookings?.some(b=> b?.fieldId?.toString() === fieldId && b?.date === formData?.bookingDate && b?.startTime === formData?.startTime && (b?.status === 'pending' || b?.status === 'confirmed'));
+      const [newStartH] = formData?.startTime?.split(':')?.map(Number);
+      const [newEndH] = formData?.endTime?.split(':')?.map(Number);
+      const conflict = bookings?.some(b=> {
+        if (b?.fieldId?.toString() !== fieldId) return false;
+        if (b?.date !== formData?.bookingDate) return false;
+        if (!(b?.status === 'pending' || b?.status === 'confirmed')) return false;
+        const [exStartH] = String(b?.startTime || '00:00')?.split(':')?.map(Number);
+        const [exEndHFromEnd] = String(b?.endTime || '')?.split(':')?.map(Number);
+        const exDuration = Number(b?.duration || 1);
+        const exEndH = Number.isFinite(exEndHFromEnd) && exEndHFromEnd > exStartH ? exEndHFromEnd : exStartH + exDuration;
+        return newStartH < exEndH && newEndH > exStartH;
+      });
       if (isHoliday(formData?.bookingDate)) {
         throw new Error('Tanggal yang dipilih adalah hari libur.');
       }
@@ -156,11 +183,12 @@ const BookingForm = () => {
         fieldName: fieldData?.name,
         date: formData?.bookingDate,
         startTime: formData?.startTime,
-        duration: parseInt(formData?.duration),
+        endTime: formData?.endTime,
+        duration: Math.max(1, (newEndH - newStartH)),
         purpose: formData?.purpose,
         phoneNumber: formData?.phoneNumber,
         specialRequests: formData?.specialRequirements,
-        totalPrice: fieldData?.pricePerHour * parseInt(formData?.duration || 0) + 5000,
+        totalPrice: fieldData?.pricePerHour * Math.max(1, (newEndH - newStartH)) + 5000,
         status: 'pending'
       };
       const result = await createBooking(bookingPayload);
@@ -200,7 +228,7 @@ const BookingForm = () => {
 
   const isFormValid = formData?.bookingDate &&
   formData?.startTime &&
-  formData?.duration &&
+  formData?.endTime &&
   formData?.purpose &&
   formData?.phoneNumber &&
   Object.keys(errors)?.length === 0;
@@ -257,13 +285,17 @@ const BookingForm = () => {
                       <span className="text-sm font-medium text-foreground">{formData?.startTime || '-'}</span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Selesai</span>
+                      <span className="text-sm font-medium text-foreground">{formData?.endTime || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Durasi</span>
-                      <span className="text-sm font-medium text-foreground">{formData?.duration || 0} jam</span>
+                      <span className="text-sm font-medium text-foreground">{Math.max(0, ((formData?.endTime && formData?.startTime) ? (parseInt(formData?.endTime?.split(':')?.[0]) - parseInt(formData?.startTime?.split(':')?.[0])) : 0))} jam</span>
                     </div>
                     <div className="border-t border-border pt-3 mt-3">
                       <div className="flex justify-between">
                         <span className="text-base font-semibold text-foreground">Total</span>
-                        <span className="text-base font-bold text-primary">Rp {(fieldData?.pricePerHour * parseInt(formData?.duration || 0) + 5000)?.toLocaleString('id-ID')}</span>
+                        <span className="text-base font-bold text-primary">Rp {(fieldData?.pricePerHour * Math.max(0, ((formData?.endTime && formData?.startTime) ? (parseInt(formData?.endTime?.split(':')?.[0]) - parseInt(formData?.startTime?.split(':')?.[0])) : 0)) + 5000)?.toLocaleString('id-ID')}</span>
                       </div>
                     </div>
                   </div>

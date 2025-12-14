@@ -13,6 +13,7 @@ const NavigationHeader = ({ userRole = 'customer', userName = 'User', onLogout }
 
   const customerNavItems = [
     { path: '/field-schedule', label: 'Jadwal Lapangan', icon: 'Calendar' },
+    { path: '/my-bookings', label: 'Booking Saya', icon: 'Receipt' },
     { path: '/user-profile', label: 'Profil Saya', icon: 'User' },
   ];
 

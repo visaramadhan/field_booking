@@ -409,7 +409,133 @@ const AdminBookingManagement = () => {
             </div>
           </div>
 
-          
+          <div className="mt-6 bg-card rounded-lg border border-border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Icon name="CreditCard" size={20} color="var(--color-primary)" />
+                </div>
+                <h2 className="text-lg font-semibold text-foreground">Kelola Pembayaran Manual</h2>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Pilih Booking</label>
+                <select
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                  value={paymentForm?.bookingId}
+                  onChange={(e)=>{
+                    const id = e?.target?.value;
+                    const bk = bookings?.find(b=> (b?.bookingId || b?.id) === id);
+                    setPaymentForm(prev=>({
+                      ...prev,
+                      bookingId:id,
+                      amount: bk?.totalPrice || prev?.amount || ''
+                    }));
+                  }}
+                >
+                  <option value="">-- pilih booking --</option>
+                  {bookings?.filter(b => b?.paymentStatus !== 'paid')?.map((b)=>{
+                    const id = b?.bookingId || b?.id;
+                    return (
+                      <option key={id} value={id}>{id} - {b?.userName} - {b?.fieldName}</option>
+                    );
+                  })}
+                </select>
+              </div>
+              <Input label="Jumlah (Rp)" type="number" value={paymentForm?.amount} onChange={(e)=>setPaymentForm(prev=>({...prev, amount:e?.target?.value}))} />
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-foreground mb-2">Metode Pembayaran</label>
+                <select
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
+                  value={paymentForm?.method || 'cash'}
+                  onChange={(e)=>setPaymentForm(prev=>({...prev, method:e?.target?.value}))}
+                >
+                  <option value="cash">Bayar Tunai (Cash)</option>
+                  <option value="transfer">Transfer Bank</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-foreground mb-2">Upload Bukti (opsional)</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e)=>setPaymentForm(prev=>({...prev, file: e?.target?.files?.[0] || null}))}
+                className="w-full"
+              />
+            </div>
+            <div className="flex items-center justify-end space-x-2 mt-4">
+              <Button
+                variant="default"
+                iconName="Receipt"
+                iconPosition="left"
+                onClick={async ()=>{
+                  if (!paymentForm?.bookingId) {
+                    window.showNotification && window.showNotification({ type:'error', message:'Pilih booking terlebih dahulu' });
+                    return;
+                  }
+                  const res = await createPayment({
+                    bookingId: paymentForm?.bookingId,
+                    userId: 'admin-action',
+                    totalAmount: parseInt(paymentForm?.amount || '0'),
+                    paymentMethod: paymentForm?.method || 'cash',
+                    currency: 'IDR',
+                    source: 'admin_manual'
+                  });
+                  if (res?.success) {
+                    setPaymentForm(prev=>({...prev, paymentId: res?.paymentId }));
+                    window.showNotification && window.showNotification({ type:'success', message:`Pembayaran dibuat: ${res?.paymentId}` });
+                  } else {
+                    window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat pembayaran' });
+                  }
+                }}
+              >
+                Buat Pembayaran
+              </Button>
+              <Button
+                variant="warning"
+                iconName="Upload"
+                iconPosition="left"
+                loading={isUploadingProof}
+                onClick={async ()=>{
+                  if (!paymentForm?.paymentId || !paymentForm?.file) {
+                    window.showNotification && window.showNotification({ type:'error', message:'Buat pembayaran dan pilih bukti dulu' });
+                    return;
+                  }
+                  setIsUploadingProof(true);
+                  const r = await uploadPaymentProof(paymentForm?.paymentId, paymentForm?.file);
+                  setIsUploadingProof(false);
+                  if (r?.success) {
+                    window.showNotification && window.showNotification({ type:'success', message:'Bukti terupload' });
+                  } else {
+                    window.showNotification && window.showNotification({ type:'error', message: r?.error || 'Gagal upload bukti' });
+                  }
+                }}
+              >
+                Upload Bukti
+              </Button>
+              <Button
+                variant="success"
+                iconName="CheckCircle"
+                iconPosition="left"
+                onClick={async ()=>{
+                  if (!paymentForm?.paymentId) {
+                    window.showNotification && window.showNotification({ type:'error', message:'Tidak ada paymentId' });
+                    return;
+                  }
+                  const r = await updatePaymentStatus(paymentForm?.paymentId, 'approved');
+                  if (r?.success) {
+                    window.showNotification && window.showNotification({ type:'success', message:'Pembayaran disetujui' });
+                  } else {
+                    window.showNotification && window.showNotification({ type:'error', message: r?.error || 'Gagal menyetujui pembayaran' });
+                  }
+                }}
+              >
+                Setujui Pembayaran
+              </Button>
+            </div>
+          </div>
 
           <BookingFilters
             filters={filters}

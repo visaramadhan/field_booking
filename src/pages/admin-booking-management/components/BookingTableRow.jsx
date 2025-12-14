@@ -3,6 +3,8 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import BookingStatusIndicator from '../../../components/navigation/BookingStatusIndicator';
 import { getPaymentsByBooking, createPayment, uploadPaymentProof } from '../../../services/paymentService';
+import { storage } from '../../../config/firebase';
+import { ref as storageRef, getDownloadURL as getStorageDownloadURL } from 'firebase/storage';
 
 const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetails, isExpanded, onApprovePayment }) => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -39,21 +41,37 @@ const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetai
   useEffect(()=>{
     (async ()=>{
       try {
-        const res = await getPaymentsByBooking(booking?.id);
+        const res = await getPaymentsByBooking(booking?.bookingId || booking?.id);
         const p = res?.success ? (res?.payments?.[0] || null) : null;
-        setProofURL(p?.proofURL || null);
+        let url = p?.proofURL || null;
+        if (url && !url?.includes('token=')) {
+          try {
+            const u = new URL(url);
+            const nameParam = u?.searchParams?.get('name');
+            const objectPath = nameParam ? decodeURIComponent(nameParam) : null;
+            if (objectPath) {
+              const fixed = await getStorageDownloadURL(storageRef(storage, objectPath));
+              url = fixed || url;
+            }
+          } catch(_) {}
+        }
+        setProofURL(url);
       } catch(_) {}
     })();
-  }, [booking?.id]);
+  }, [booking?.bookingId, booking?.id]);
 
   const handleAdminRecordPayment = async () => {
     try {
-      const res = await getPaymentsByBooking(booking?.id);
+      if (booking?.paymentStatus === 'paid') {
+        window.showNotification && window.showNotification({ type:'info', message:'Booking sudah lunas. Tidak dapat mencatat pembayaran baru.' });
+        return;
+      }
+      const res = await getPaymentsByBooking(booking?.bookingId || booking?.id);
       const existing = res?.success ? (res?.payments?.[0] || null) : null;
       let paymentId = existing?.paymentId || null;
       if (!paymentId) {
         const cRes = await createPayment({
-          bookingId: booking?.id,
+          bookingId: booking?.bookingId || booking?.id,
           userId: 'admin-action',
           totalAmount: Number(booking?.totalPrice || 0),
           paymentMethod: adminMethod,
@@ -157,12 +175,12 @@ const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetai
                 </Button>
               </>
             )}
-            {booking?.paymentStatus === 'verification_pending' && (
+            {(booking?.paymentStatus === 'verification_pending' || booking?.paymentStatus === 'pending') && (
               <Button
                 variant="success"
                 size="xs"
                 iconName="Check"
-                onClick={() => onApprovePayment(booking?.id)}
+                onClick={() => onApprovePayment(booking?.bookingId || booking?.id)}
               >
                 Setujui Pembayaran
               </Button>
@@ -243,24 +261,28 @@ const BookingTableRow = ({ booking, onApprove, onReject, onDelete, onToggleDetai
                   placeholder="Tambahkan catatan internal..."
                   defaultValue={booking?.adminNotes}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1">Metode Pembayaran (Manual)</label>
-                    <select className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" value={adminMethod} onChange={(e)=>setAdminMethod(e?.target?.value)}>
-                      <option value="cash">Cash</option>
-                      <option value="transfer">Transfer</option>
-                    </select>
-                  </div>
-                  {adminMethod === 'transfer' && (
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-1">Upload Bukti</label>
-                      <input type="file" accept="image/*" onChange={(e)=>setAdminFile(e?.target?.files?.[0] || null)} className="w-full" />
+                {booking?.paymentStatus !== 'paid' && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-1">Metode Pembayaran (Manual)</label>
+                        <select className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" value={adminMethod} onChange={(e)=>setAdminMethod(e?.target?.value)}>
+                          <option value="cash">Cash</option>
+                          <option value="transfer">Transfer</option>
+                        </select>
+                      </div>
+                      {adminMethod === 'transfer' && (
+                        <div>
+                          <label className="text-sm font-medium text-foreground mb-1">Upload Bukti</label>
+                          <input type="file" accept="image/*" onChange={(e)=>setAdminFile(e?.target?.files?.[0] || null)} className="w-full" />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="flex items-center justify-end">
-                  <Button variant="outline" size="sm" iconName="Receipt" iconPosition="left" onClick={handleAdminRecordPayment}>Catat Pembayaran</Button>
-                </div>
+                    <div className="flex items-center justify-end">
+                      <Button variant="outline" size="sm" iconName="Receipt" iconPosition="left" onClick={handleAdminRecordPayment}>Catat Pembayaran</Button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </td>

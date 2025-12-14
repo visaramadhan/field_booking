@@ -136,17 +136,10 @@ const FieldSchedule = () => {
     setShowDetailModal(true);
   };
 
-  const handleBookSlot = (field, date, time) => {
-    setSelectedField(field);
-    setBookingSlot({ date, time });
-    setShowBookingModal(true);
-  };
+  const handleBookSlot = () => {};
 
   const handleBookField = (field) => {
-    setSelectedField(field);
-    const today = new Date();
-    setBookingSlot({ date: today, time: '08:00' });
-    setShowBookingModal(true);
+    navigate('/booking-form', { state: { fieldData: field } });
   };
 
   const handleConfirmBooking = (bookingData) => {
@@ -179,9 +172,25 @@ const FieldSchedule = () => {
       const day = String(d?.getDate())?.padStart(2,'0');
       const month = String(d?.getMonth()+1)?.padStart(2,'0');
       const year = d?.getFullYear();
-      return { fieldId: b?.fieldId, date: `${day}/${month}/${year}`, time: b?.startTime, status: b?.status };
+      return { 
+        fieldId: b?.fieldId, 
+        date: `${day}/${month}/${year}`, 
+        time: b?.startTime, 
+        startTime: b?.startTime,
+        endTime: b?.endTime,
+        duration: b?.duration,
+        status: b?.status 
+      };
     } catch(_) {
-      return { fieldId: b?.fieldId, date: b?.date, time: b?.startTime, status: b?.status };
+      return { 
+        fieldId: b?.fieldId, 
+        date: b?.date, 
+        time: b?.startTime, 
+        startTime: b?.startTime,
+        endTime: b?.endTime,
+        duration: b?.duration,
+        status: b?.status 
+      };
     }
   });
 
@@ -222,6 +231,17 @@ const FieldSchedule = () => {
 
                 Daftar
               </Button>
+              <Button
+                variant="default"
+                size="sm"
+                iconName="PlusCircle"
+                iconPosition="left"
+                onClick={()=>{
+                  const firstField = getFilteredFields()?.[0] || null;
+                  navigate('/booking-form', { state: { fieldData: firstField } });
+                }}>
+                Tambah Booking
+              </Button>
             </div>
           </div>
 
@@ -246,6 +266,18 @@ const FieldSchedule = () => {
               onClick={() => setViewMode('list')}>
 
               Daftar
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              fullWidth
+              iconName="PlusCircle"
+              iconPosition="left"
+              onClick={()=>{
+                const firstField = getFilteredFields()?.[0] || null;
+                navigate('/booking-form', { state: { fieldData: firstField } });
+              }}>
+              Tambah Booking
             </Button>
           </div>
         </div>
@@ -315,47 +347,11 @@ const FieldSchedule = () => {
         }}
         onBookNow={(field) => {
           setShowDetailModal(false);
-          handleBookField(field);
+          navigate('/booking-form', { state: { fieldData: field } });
         }} />
 
       }
-      {showBookingModal && selectedField && bookingSlot &&
-      <BookingModal
-        field={selectedField}
-        selectedDate={bookingSlot?.date}
-        selectedTime={bookingSlot?.time}
-        onClose={() => {
-          setShowBookingModal(false);
-          setSelectedField(null);
-          setBookingSlot(null);
-        }}
-        onConfirm={async (data)=>{
-          const userId = auth?.currentUser?.uid || 'anonymous';
-          const payload = {
-            userId,
-            userName,
-            userEmail: auth?.currentUser?.email || '',
-            fieldId: selectedField?.id,
-            fieldName: selectedField?.name,
-            date: data?.date,
-            startTime: data?.startTime || data?.time,
-            duration: data?.duration || 1,
-            totalPrice: data?.total || Number(selectedField?.pricePerHour || selectedField?.price || 0) * Number(data?.duration || 1),
-            status: 'pending',
-            source: 'user_booking'
-          };
-          const res = await createBooking(payload);
-          if (res?.success) {
-            window.showNotification && window.showNotification({ type:'success', message:'Booking berhasil dibuat! Menunggu persetujuan admin.' });
-          } else {
-            window.showNotification && window.showNotification({ type:'error', message: res?.error || 'Gagal membuat booking' });
-          }
-          setShowBookingModal(false);
-          setSelectedField(null);
-          setBookingSlot(null);
-        }} />
       
-      }
       <BottomNavigation userRole={userRole} />
     </div>);
 

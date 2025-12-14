@@ -15,7 +15,8 @@ const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
     status: 'active',
     amenities: [],
     image: '',
-    lastMaintenance: ''
+    lastMaintenance: '',
+    maintenancePeriods: []
   });
 
   const [errors, setErrors] = useState({});
@@ -48,7 +49,8 @@ const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
         status: field?.status || 'active',
         amenities: field?.amenities || [],
         image: field?.image || '',
-        lastMaintenance: field?.lastMaintenance || ''
+        lastMaintenance: field?.lastMaintenance || '',
+        maintenancePeriods: field?.maintenancePeriods || []
       });
     } else {
       setFormData({
@@ -58,7 +60,8 @@ const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
         status: 'active',
         amenities: [],
         image: '',
-        lastMaintenance: ''
+        lastMaintenance: '',
+        maintenancePeriods: []
       });
     }
     setErrors({});
@@ -254,6 +257,69 @@ const FieldFormModal = ({ isOpen, onClose, field, onSave }) => {
             value={formData?.lastMaintenance}
             onChange={handleChange}
           />
+
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-foreground">Jadwal Maintenance Per Slot</label>
+            <div className="grid md:grid-cols-4 gap-2">
+              <Input label="Tanggal" type="date" name="maintenanceDate" value={formData?.maintenanceDate || ''} onChange={(e)=> setFormData(prev=> ({ ...prev, maintenanceDate: e?.target?.value }))} />
+              <Input label="Mulai" type="time" name="maintenanceStart" value={formData?.maintenanceStart || ''} onChange={(e)=> setFormData(prev=> ({ ...prev, maintenanceStart: e?.target?.value }))} />
+              <Input label="Selesai" type="time" name="maintenanceEnd" value={formData?.maintenanceEnd || ''} onChange={(e)=> setFormData(prev=> ({ ...prev, maintenanceEnd: e?.target?.value }))} />
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  iconName="Plus"
+                  iconPosition="left"
+                  onClick={()=>{
+                    const d = formData?.maintenanceDate;
+                    const s = formData?.maintenanceStart;
+                    const e = formData?.maintenanceEnd;
+                    if (!d || !s || !e) {
+                      window.showNotification && window.showNotification({ type:'error', message:'Lengkapi tanggal dan waktu maintenance' });
+                      return;
+                    }
+                    setFormData(prev=> ({
+                      ...prev,
+                      maintenancePeriods: [...(prev?.maintenancePeriods || []), { date: d, start: s, end: e }],
+                      maintenanceDate: '',
+                      maintenanceStart: '',
+                      maintenanceEnd: ''
+                    }));
+                  }}
+                >
+                  Tambah
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(formData?.maintenancePeriods || [])?.length === 0 ? (
+                <div className="text-sm text-muted-foreground">Belum ada jadwal maintenance per slot</div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-2">
+                  {formData?.maintenancePeriods?.map((p, idx)=> (
+                    <div key={`${p?.date}-${p?.start}-${idx}`} className="flex items-center justify-between px-3 py-2 border border-border rounded-lg">
+                      <div className="text-sm">
+                        <span className="font-medium text-foreground">{p?.date}</span>
+                        <span className="text-muted-foreground ml-2">{p?.start} - {p?.end}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        iconName="Trash2"
+                        onClick={()=>{
+                          setFormData(prev=> ({
+                            ...prev,
+                            maintenancePeriods: (prev?.maintenancePeriods || [])?.filter((_, i)=> i !== idx)
+                          }));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-3">
